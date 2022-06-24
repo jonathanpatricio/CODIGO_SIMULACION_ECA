@@ -49,30 +49,30 @@ Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, 
   v1i_ <- v_i_[,2]  # Para tres brazos de tratamiento
   
   # Beta_0
-  b0_ <- b0 + v0i_  # Para tres brazos de tratamiento
-  b0 <- b0 + v0i    # Para dos brazos de tratamiento
+  b0_ <- b0 
+  b0 <- b0 
   
     # Beta_1
-  b1_ <- b1 + v1i_  # Para tres brazos de tratamiento
-  b1 <- b1 + v1i    # Para dos brazos de tratamiento
+  b1_ <- b1 
+  b1 <- b1 
   
   # Beta_2
-  b2_ <- b2 * treat_2  # Para tres brazos de tratamiento
-  b2 <- b2 * treat     # Para dos brazos de tratamiento
+  b2_ <- b2 * treat_2
+  b2 <- b2 * treat
   
   # Beta_3
-  b3_ <- b3 * treat_2 # Para tres brazos de tratamiento
-  b3 <- b3 * treat    # Para dos brazos de tratamiento
+  b3_ <- b3 * treat_2
+  b3 <- b3 * treat
   
   # Beta_4
-  b4_ <- b4 * treat_3  # Para tres brazos de tratamiento
+  b4_ <- b4 * treat_3
   
   # Beta_5
-  b5_ <- b5 * treat_3  # Para tres brazos de tratamiento
+  b5_ <- b5 * treat_3
   
   # estimación y_ij a lo ancho
-  yij_2_treat <- as.data.frame(b0  + b1 *tij  + b2  + b3 *tij  +                  v0i  + v1i *tij  + eij )  # Para dos brazos de tratamiento
-  yij_3_treat <- as.data.frame(b0_ + b1_*tij_ + b2_ + b3_*tij_ + b4_ + b5_*tij_ + v0i_ + v1i_*tij_ + eij_)  # Para tres brazos de tratamiento
+  yij_2_treat <- as.data.frame(b0   + b2  +       v0i  + b1  * tij   + b3  * tij   +              v1i  * tij  + eij  )
+  yij_3_treat <- as.data.frame(b0_  + b2_ + b4_ + v0i_ + b1_ * tij_  + b3_ * tij_  + b5_ * tij_ + v1i_ * tij_ + eij_ )
   
   # Añadiendo ID y el identificador de los brazos de tratamiento a los datos simulados con dos brazos tratamiento
   grupos <- as.numeric(as.numeric(cbind(rep(1, n), rep(2, n))))              # Creando un vector tipo factor para dos brazos de tratamiento
@@ -110,4 +110,4 @@ estimaciones <- Pob_ECA(n = 5000,
                         var_v0i = 10, 
                         var_v1i = 0.33, 
                         cov_v0iv1i = -0.6207212, 
-                        var_eij = 8.7)
+                        var_eij = 22.09)
