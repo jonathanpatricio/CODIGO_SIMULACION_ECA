@@ -111,3 +111,66 @@ estimaciones <- Pob_ECA(n = 5000,
                         var_v1i = 0.33, 
                         cov_v0iv1i = -0.6207212, 
                         var_eij = 22.09)
+
+###########################################################################################################################
+## Función para comparar los modelos para dos brazos de tratamiento
+#Funcion
+Comp_poder_2_treat <- function(yij_2_treat, sample_min, sample_max, repeticiones, t) {
+
+#Semilla
+set.seed(16)
+
+#Librerías
+library(dplyr)
+library(gee)
+library(ggplot2)
+
+#Muestras
+
+#Matrices
+Gee_intercanbiable <- matrix(0,(sample_max-sample_min),repeticiones)
+
+#Bucle
+for (i in sample_min:sample_max) {for(j in 1:repeticiones){
+
+sample_treat_1 <- yij_2_treat[sample(x = 1:(nrow(yij_2_treat)/2), size = i, replace = FALSE),]
+sample_treat_2 <- yij_2_treat[sample(x = (nrow(yij_2_treat)/2+1):nrow(yij_2_treat), size = i, replace = FALSE),]
+sample <- bind_rows(sample_treat_1,sample_treat_2)
+
+sample_long <- reshape(data = sample,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+sample_long <- arrange(sample_long,ID,tiempo)
+sample_long$tiempo <- as.numeric(sample_long$tiempo)
+sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
+
+#Modelos
+intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
+
+
+#Completando las matrices con la desición de la hipótesis
+Gee_intercanbiable[i-sample_min,j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4]),0,1) < 0.05) 1 else 0
+
+}}
+
+#Base de datos
+Gee_inter <- as.data.frame(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+
+Base <- mutate(Gee_inter,ID = sample_min:(sample_max-1))
+
+Grafico <- ggplot(data = Base, aes(y = `apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean)`, x = ID)) +
+  geom_point(alpha=0.3,size=1) +
+  geom_smooth(method=loess, se=FALSE) +
+  theme_classic() +
+  labs(title="P", y="Prop. Rechazo Ho", x="Tamaño de muestra", caption="Fuente: Simulación")
+
+return(list(Base = Base, Grafico = Grafico))
+}
+
+# Estableciento valores a la función creada para simular los datos del ECA con dos y tres brazos de tratamiento
+
+Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
+                   sample_min = 10, 
+                   sample_max = 40, 
+                   repeticiones = 15, 
+                   t = 8)
+
+
