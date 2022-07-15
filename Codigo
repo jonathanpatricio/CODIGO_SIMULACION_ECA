@@ -129,6 +129,8 @@ library(ggplot2)
 
 #Matrices
 Gee_intercanbiable <- matrix(0,(sample_max-sample_min),repeticiones)
+Gee_AR1 <- matrix(0,(sample_max-sample_min),repeticiones)
+
 
 #Bucle
 for (i in sample_min:sample_max) {for(j in 1:repeticiones){
@@ -144,33 +146,41 @@ sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
 
 #Modelos
 intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
+AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
 
 
 #Completando las matrices con la desición de la hipótesis
-Gee_intercanbiable[i-sample_min,j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4]),0,1) < 0.05) 1 else 0
+Gee_intercanbiable[i-sample_min,j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4]), 0, 1) < 0.05) 1 else 0
+Gee_AR1[i-sample_min,j]            <-if(pnorm(as.matrix(AR1$coefficients)[4,]/sqrt(AR1$robust.variance[4,4]), 0, 1) < 0.05) 1 else 0
 
 }}
 
 #Base de datos
-Gee_inter <- as.data.frame(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+Gee_inter <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+Gee_AR    <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
 
-Base <- mutate(Gee_inter,ID = sample_min:(sample_max-1))
+Base <- as.data.frame(cbind(ID = sample_min:(sample_max-1),Gee_inter))
+Base <- mutate(Base,Gee_AR)
 
-Grafico <- ggplot(data = Base, aes(y = `apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean)`, x = ID)) +
+#Gráfica
+Base_largo <- reshape(data = Base, varying = 2:3, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
+colnames(Base_largo) <- c("n","modelo","Acepta_HO")
+Base_largo<-arrange(Base_largo,n,modelo)
+
+Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = as.factor(modelo))) +
   geom_point(alpha=0.3,size=1) +
   geom_smooth(method=loess, se=FALSE) +
   theme_classic() +
-  labs(title="P", y="Prop. Rechazo Ho", x="Tamaño de muestra", caption="Fuente: Simulación")
+  labs(title="P", y="Prop. Acepta Ho", x="Tamaño de muestra", caption="Fuente: Simulación")
 
-return(list(Base = Base, Grafico = Grafico))
+return(list(Base = Base, Gee_intercanbiable = Gee_intercanbiable, Gee_AR1 = Gee_AR1, Base_largo = Base_largo, Grafico = Grafico ))
+
 }
 
-# Estableciento valores a la función creada para simular los datos del ECA con dos y tres brazos de tratamiento
-
+#Parámetros
+yij_2_treat <- estimaciones$Treat_2$yij_2
 Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
                    sample_min = 10, 
-                   sample_max = 40, 
-                   repeticiones = 15, 
+                   sample_max = 50, 
+                   repeticiones = 10, 
                    t = 8)
-
-
