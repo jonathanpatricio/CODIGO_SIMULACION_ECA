@@ -124,13 +124,17 @@ set.seed(16)
 library(dplyr)
 library(gee)
 library(ggplot2)
+library(lmerTest)
+library(lme4)
 
 #Muestras
 
 #Matrices
 Gee_intercanbiable <- matrix(0,(sample_max-sample_min),repeticiones)
-Gee_AR1 <- matrix(0,(sample_max-sample_min),repeticiones)
-
+Gee_AR1            <- matrix(0,(sample_max-sample_min),repeticiones)
+Gee_unstructured   <- matrix(0,(sample_max-sample_min),repeticiones)
+Mixto_pendiente    <- matrix(0,(sample_max-sample_min),repeticiones)
+Mixto_pen_inter    <- matrix(0,(sample_max-sample_min),repeticiones)
 
 #Bucle
 for (i in sample_min:sample_max) {for(j in 1:repeticiones){
@@ -147,33 +151,47 @@ sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
 #Modelos
 intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
 AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
-
+unstructured   <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
+pendiente      <- lmer(yij ~ treat + tiempo + treat * tiempo + (1|ID), data = sample_long, REML = FALSE)
+pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
 
 #Completando las matrices con la desición de la hipótesis
-Gee_intercanbiable[i-sample_min,j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4]), 0, 1) < 0.05) 1 else 0
-Gee_AR1[i-sample_min,j]            <-if(pnorm(as.matrix(AR1$coefficients)[4,]/sqrt(AR1$robust.variance[4,4]), 0, 1) < 0.05) 1 else 0
+Gee_intercanbiable[i-sample_min,j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4]), 0, 1)        < 0.05) 1 else 0
+Gee_AR1[i-sample_min,j]            <-if(pnorm(as.matrix(AR1$coefficients)[4,]/sqrt(AR1$robust.variance[4,4]), 0, 1)                              < 0.05) 1 else 0
+Gee_unstructured[i-sample_min,j]   <-if(pnorm(as.matrix(unstructured$coefficients)[4,]/sqrt(unstructured$robust.variance[4,4]), 0, 1)            < 0.05) 1 else 0
+Mixto_pendiente[i-sample_min,j]    <-if(pt(as.matrix(pendiente@beta)[4,]/sqrt(pendiente@vcov_beta[4,4]), df = as.matrix(pendiente@Gp)[2,]-1)     < 0.05) 1 else 0
+Mixto_pen_inter[i-sample_min,j]    <-if(pt(as.matrix(pen_intercepto@beta)[4,]/sqrt(pen_intercepto@vcov_beta[4,4]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
 
 }}
 
 #Base de datos
-Gee_inter <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
-Gee_AR    <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
+Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
+Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
+Mixto_pen  <- as.matrix(apply(X = Mixto_pendiente,    MARGIN = 1, FUN = mean))
+Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
 
 Base <- as.data.frame(cbind(ID = sample_min:(sample_max-1),Gee_inter))
 Base <- mutate(Base,Gee_AR)
+Base <- mutate(Base,Gee_unst)
+Base <- mutate(Base,Mixto_pen)
+Base <- mutate(Base,Mixto_pen_)
 
 #Gráfica
-Base_largo <- reshape(data = Base, varying = 2:3, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
+Base_largo <- reshape(data = Base, varying = 2:6, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
 colnames(Base_largo) <- c("n","modelo","Acepta_HO")
 Base_largo<-arrange(Base_largo,n,modelo)
+Base_largo$modelo <- factor(Base_largo$modelo, labels = c("Gee exchangeable", "Gee AR(1)", "Gee unstructured","Mixto intercepto aleatorio", "Mixto intercepto y pendiente aleatoria"))
 
-Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = as.factor(modelo))) +
-  geom_point(alpha=0.3,size=1) +
-  geom_smooth(method=loess, se=FALSE) +
+Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = modelo)) +
+  geom_point(alpha = 0.3, size = 1) +
+  geom_smooth(method = loess, se = FALSE) +
   theme_classic() +
-  labs(title="P", y="Prop. Acepta Ho", x="Tamaño de muestra", caption="Fuente: Simulación")
+  labs(title="P", y="Poder", x="Tamaño de muestra", caption="Fuente: Simulación", size = 2 )
 
-return(list(Base = Base, Gee_intercanbiable = Gee_intercanbiable, Gee_AR1 = Gee_AR1, Base_largo = Base_largo, Grafico = Grafico ))
+return(list(Base = Base, Gee_intercanbiable = Gee_intercanbiable, Gee_AR1 = Gee_AR1,
+            Gee_unstructured = Gee_unstructured, Mixto_pendiente = Mixto_pendiente,
+            Mixto_pen_inter = Mixto_pen_inter, Base_largo = Base_largo, Grafico = Grafico ))
 
 }
 
@@ -181,6 +199,6 @@ return(list(Base = Base, Gee_intercanbiable = Gee_intercanbiable, Gee_AR1 = Gee_
 yij_2_treat <- estimaciones$Treat_2$yij_2
 Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
                    sample_min = 10, 
-                   sample_max = 50, 
+                   sample_max = 30, 
                    repeticiones = 10, 
                    t = 8)
