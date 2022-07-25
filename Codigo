@@ -113,7 +113,7 @@ estimaciones <- Pob_ECA(n = 5000,
                         var_eij = 22.09)
 
 ###########################################################################################################################
-#Función
+#Función que compara los modelos para dos brazos de tratamiento
 Comp_poder_2_treat <- function(yij_2_treat, sample_min, sample_max, repeticiones, t) {
 
 #Semilla
@@ -201,3 +201,100 @@ Comp_poder_2_treat(yij_2_treat = yij_2_treat,
                    sample_max = 25, 
                    repeticiones = 30, 
                    t = 8)
+
+#---------------------------------------------------------------------------------------------------------------------
+#Función que compara los modelos para dos brazos de tratamiento
+
+Comp_error_tipoI_3_treat <- function(yij_3_treat, sample_min, sample_max, repeticiones, t) {
+  
+  #Semilla
+  set.seed(16)
+  
+  #Librerías
+  library(dplyr)
+  library(gee)
+  library(ggplot2)
+  library(lmerTest)
+  library(lme4)
+  
+  #Matrices
+  Gee_intercanbiable <- matrix(0,(sample_max-sample_min),repeticiones)
+  Gee_AR1            <- matrix(0,(sample_max-sample_min),repeticiones)
+  Gee_unstructured   <- matrix(0,(sample_max-sample_min),repeticiones)
+  Mixto_intercepto   <- matrix(0,(sample_max-sample_min),repeticiones)
+  Mixto_pen_inter    <- matrix(0,(sample_max-sample_min),repeticiones)
+  
+  A1 <- c(0,0,0,0,1,0)
+  A2 <- c(0,0,0,0,0,1)
+  C  <- rbind(A1,A2)
+  
+  #Bucle
+  for (i in sample_min:sample_max) {for(j in 1:repeticiones){
+    
+    sample_treat_1 <- yij_3_treat[sample(x = 1:(nrow(yij_3_treat)/3), size = i, replace = FALSE),]
+    sample_treat_2 <- yij_3_treat[sample(x = (nrow(yij_3_treat)/3+1):((nrow(yij_3_treat)/3)*2), size = i, replace = FALSE),]
+    sample_treat_3 <- yij_3_treat[sample(x = ((nrow(yij_3_treat)/3)*2+1):nrow(yij_3_treat), size = i, replace = FALSE),]
+    
+    sample <- bind_rows(sample_treat_1,sample_treat_2,sample_treat_3)
+    
+    sample_long <- reshape(data = sample,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+    sample_long <- arrange(sample_long,ID,tiempo)
+    sample_long$tiempo <- as.numeric(sample_long$tiempo)
+    sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
+    
+    #Modelos
+    intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
+    AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
+    unstructured   <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
+    intercepto     <- lmer(yij ~ treat + tiempo + treat * tiempo + (1|ID), data = sample_long, REML = FALSE)
+    pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
+    
+    #Completando las matrices con la decisión de la hipótesis
+    Gee_intercanbiable[i-sample_min,j] <-if(1-pchisq(t(intercanbiable$coefficients)%*%t(C)%*%solve(C%*%intercanbiable$robust.variance%*%t(C))%*%C%*%intercanbiable$coefficients,5) < 0.05) 1 else 0
+    Gee_AR1[i-sample_min,j]            <-if(1-pchisq(t(AR1$coefficients)%*%t(C)%*%solve(C%*%AR1$robust.variance%*%t(C))%*%C%*%AR1$coefficients,5)                                  < 0.05) 1 else 0
+    Gee_unstructured[i-sample_min,j]   <-if(1-pchisq(t(unstructured$coefficients)%*%t(C)%*%solve(C%*%unstructured$robust.variance%*%t(C))%*%C%*%unstructured$coefficients,5)       < 0.05) 1 else 0
+    Mixto_intercepto[i-sample_min,j]   <-if(1-pchisq(t(intercepto@beta)%*%t(C)%*%solve(C%*%intercepto@vcov_beta%*%t(C))%*%C%*%intercepto@beta,5)                                   < 0.05) 1 else 0
+    Mixto_pen_inter[i-sample_min,j]    <-if(1-pchisq(t(pen_intercepto@beta)%*%t(C)%*%solve(C%*%pen_intercepto@vcov_beta%*%t(C))%*%C%*%pen_intercepto@beta,5)                       < 0.05) 1 else 0
+ 
+  }}
+  
+  #Base de datos
+  Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+  Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
+  Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
+  Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
+  Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
+  
+  Base <- as.data.frame(cbind(ID = sample_min:(sample_max-1),Gee_inter))
+  Base <- mutate(Base,Gee_AR)
+  Base <- mutate(Base,Gee_unst)
+  Base <- mutate(Base,Mixto_inte)
+  Base <- mutate(Base,Mixto_pen_)
+  
+  #Gráfica
+  Base_largo <- reshape(data = Base, varying = 2:6, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
+  colnames(Base_largo) <- c("n","modelo","Acepta_HO")
+  Base_largo<-arrange(Base_largo,n,modelo)
+  Base_largo$modelo <- factor(Base_largo$modelo, labels = c("Gee exchangeable", "Gee AR(1)", "Gee unstructured","Mixto intercepto aleatorio", "Mixto intercepto y pendiente aleatoria"))
+  
+  Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = modelo)) +
+    geom_point(alpha = 0.3, size = 1) +
+    geom_smooth(method = loess, se = FALSE) +
+    theme_classic() +
+    labs(title="P", y="Poder", x="Tamaño de muestra", caption="Fuente: Simulación", size = 2 )
+  
+  return(list(Base = Base, Gee_intercanbiable = Gee_intercanbiable, Gee_AR1 = Gee_AR1,
+              Gee_unstructured = Gee_unstructured, Mixto_intercepto = Mixto_intercepto,
+              Mixto_pen_inter = Mixto_pen_inter, Base_largo = Base_largo, Grafico = Grafico ))
+  
+}
+
+#Parámetros
+yij_3_treat <- estimaciones$Treat_3$yij_3
+Comp_error_tipoI_3_treat(yij_3_treat = yij_3_treat, 
+                         sample_min = 10, 
+                         sample_max = 200, 
+                         repeticiones = 10, 
+                         t = 8)
+
+
