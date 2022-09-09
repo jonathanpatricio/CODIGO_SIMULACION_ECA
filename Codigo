@@ -99,18 +99,54 @@ Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, 
 }
 
 # Estableciento valores a la función creada para simular los datos del ECA con dos y tres brazos de tratamiento
-estimaciones <- Pob_ECA(n = 5000, 
+
+#Población basal con 8 mediciones repetidas
+población_basal <- Pob_ECA(n = 1000000, 
                         t = 8, 
                         b0 = 44.9, 
                         b1 = 0.11, 
                         b2 = -2.3, 
-                        b3 = 0, 
+                        b3 = -0.02, 
                         b4 = -2.3, 
-                        b5 = 0,
-                        var_v0i = 10, 
-                        var_v1i = 0.33, 
-                        cov_v0iv1i = -0.6207212, 
+                        b5 = -0.02, 
+                        var_v0i = 102.01, 
+                        var_v1i = 0.1089, 
+                        cov_v0iv1i = -1.13322, 
                         var_eij = 22.09)
+
+#Exportando los datos simulados a Excel
+library(xlsx)
+write.table(población_basal$Treat_2$yij_2, "Datos/Población basal/Población_basal_Treat_2.txt")
+write.table(población_basal$Treat_2$cor_2, "Datos/Población basal/Población_basal_cor_2.txt")
+
+write.table(población_basal$Treat_3$yij_3, "Datos/Población basal/Población_basal_Treat_3.txt")
+write.table(población_basal$Treat_3$cor_3, "Datos/Población basal/Población_basal_cor_3.txt")
+
+
+#Población basal con 4 mediciones repetidas
+población_basal_4mediciones <- Pob_ECA(n = 1000000, 
+                           t = 4, 
+                           b0 = 44.9, 
+                           b1 = 0.11, 
+                           b2 = -2.3, 
+                           b3 = -0.02, 
+                           b4 = -2.3, 
+                           b5 = -0.02, 
+                           var_v0i = 102.01, 
+                           var_v1i = 0.1089, 
+                           cov_v0iv1i = -1.13322, 
+                           var_eij = 22.09)
+
+#Exportando los datos simulados a Excel
+write.table(población_basal_4mediciones$Treat_2$yij_2, "Datos/Población basal/población_basal_4mediciones_Treat_2.txt")
+write.table(población_basal_4mediciones$Treat_2$cor_2, "Datos/Población basal/población_basal_4mediciones_cor_2.txt")
+
+write.table(población_basal_4mediciones$Treat_3$yij_3, "Datos/Población basal/población_basal_4mediciones_Treat_3.txt")
+write.table(población_basal_4mediciones$Treat_3$cor_3, "Datos/Población basal/población_basal_4mediciones_cor_3.txt")
+
+
+
+
 
 ###########################################################################################################################
 #Función que compara los modelos para dos brazos de tratamiento
