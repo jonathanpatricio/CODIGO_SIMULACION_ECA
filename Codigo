@@ -122,6 +122,60 @@ write.table(población_basal$Treat_2$cor_2, "Datos/Población basal/Población_b
 write.table(población_basal$Treat_3$yij_3, "Datos/Población basal/Población_basal_Treat_3.txt")
 write.table(población_basal$Treat_3$cor_3, "Datos/Población basal/Población_basal_cor_3.txt")
 
+#Gráfica de tendencia de los datos simulados
+par(mfrow = c(2, 2))
+library(lme4)
+
+set.seed(16)
+#Dos brazos y 8 mediciones
+sample_2treat_8rep <- población_basal$Treat_2$yij_2[sample(población_basal$Treat_2$yij_2$ID, size = 100, replace = FALSE),]
+sample_2treat_8rep_largo <- reshape(data = sample_2treat_8rep, varying = 1:8, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+sample_2treat_8rep_largo <- arrange(sample_2treat_8rep_largo,ID,tiempo)
+
+with(sample_2treat_8rep_largo,interaction.plot(tiempo, ID, yij,
+                                               legend = FALSE,
+                                               cex = 3,
+                                               col = "blue",
+                                               main = "n = 100; 2 tratamientos",
+                                               xlab ="Mediciones",
+                                               ylab = "valores de la PCS"))
+
+abline(a = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
+                           data = sample_2treat_8rep_largo,
+                           REML = FALSE)@beta)[1,], 
+       b = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
+                           data = sample_2treat_8rep_largo,
+                           REML = FALSE)@beta)[4,],
+       col = "red",
+       lwd = 3,
+       lty = 2)
+
+#Tres brazos y 8 mediciones
+set.seed(16)
+sample_3treat_8rep <- población_basal$Treat_3$yij_3[sample(población_basal$Treat_3$yij_3$ID, size = 150, replace = FALSE),]
+sample_3treat_8rep_largo <- reshape(data = sample_3treat_8rep, varying = 1:8, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+sample_3treat_8rep_largo <- arrange(sample_3treat_8rep_largo,ID,tiempo)
+
+with(sample_3treat_8rep_largo,interaction.plot(tiempo, ID, yij,
+                                               legend = FALSE,
+                                               col = "blue",
+                                               main = "n = 150; 3 tratamientos",
+                                               xlab = "Mediciones",
+                                               ylab = "valores de la PCS"))
+
+
+abline(a = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
+                           data = sample_3treat_8rep_largo,
+                           REML = FALSE)@beta)[1,], 
+       b = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
+                           data = sample_3treat_8rep_largo,
+                           REML = FALSE)@beta)[4,],
+       col = "red",
+       lwd = 3,
+       lty = 2)               
+
+
+
 
 #Población basal con 4 mediciones repetidas
 población_basal_4mediciones <- Pob_ECA(n = 1000000, 
@@ -144,7 +198,54 @@ write.table(población_basal_4mediciones$Treat_2$cor_2, "Datos/Población basal/
 write.table(población_basal_4mediciones$Treat_3$yij_3, "Datos/Población basal/población_basal_4mediciones_Treat_3.txt")
 write.table(población_basal_4mediciones$Treat_3$cor_3, "Datos/Población basal/población_basal_4mediciones_cor_3.txt")
 
+#Gráfica de tendencia de los datos simulados
+#Dos brazos y 4 mediciones
+set.seed(17)
+sample_2treat_4rep <- población_basal_4mediciones$Treat_2$yij_2[sample(población_basal_4mediciones$Treat_2$yij_2$ID, size = 100, replace = FALSE),]
+sample_2treat_4rep_largo <- reshape(data = sample_2treat_4rep, varying = 1:4, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+sample_2treat_4rep_largo <- arrange(sample_2treat_4rep_largo,ID,tiempo)
 
+with(sample_2treat_4rep_largo,interaction.plot(tiempo, ID, yij,
+                                               legend = FALSE,
+                                               col = "blue",
+                                               #main = "n = 100; 2 tratamientos",
+                                               xlab = "Mediciones",
+                                               ylab = "valores de la PCS"))
+
+abline(a = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
+                           data = sample_2treat_4rep_largo,
+                           REML = FALSE)@beta)[1,], 
+       b = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
+                           data = sample_2treat_4rep_largo,
+                           REML = FALSE)@beta)[4,],
+       col = "red",
+       lwd = 3,
+       lty = 2)
+
+
+
+#Tres brazos y 4 mediciones
+set.seed(16)
+sample_3treat_4rep <- población_basal_4mediciones$Treat_3$yij_3[sample(población_basal_4mediciones$Treat_3$yij_3$ID, size = 150, replace = FALSE),]
+sample_3treat_4rep_largo <- reshape(data = sample_3treat_4rep, varying = 1:4, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+sample_3treat_4rep_largo <- arrange(sample_3treat_4rep_largo,ID,tiempo)
+
+with(sample_3treat_4rep_largo,interaction.plot(tiempo, ID, yij,
+                                               legend = FALSE,
+                                               col = "blue",
+                                               #main="n = 150; 3 tratamientos",
+                                               xlab="Mediciones",
+                                               ylab = "valores de la PCS"))
+
+abline(a = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
+                           data = sample_3treat_4rep_largo,
+                           REML = FALSE)@beta)[1,], 
+       b = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
+                           data = sample_3treat_4rep_largo,
+                           REML = FALSE)@beta)[4,],
+       col = "red",
+       lwd = 3,
+       lty = 2)
 
 
 
