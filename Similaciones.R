@@ -1,4 +1,4 @@
-#Funciones
+#Funciones----------------------------------------------------------------------
 Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, var_eij) {
   # Semilla para fijar los números aleatorios
   set.seed(16)
@@ -189,62 +189,148 @@ Comp_poder_2_treat <- function(yij_2_treat, sample_min, sample_max, repeticiones
   
 }
 
-# Escenario 5
+var_cov_v0iv1i(sd_v0i = 10.1, 
+               sd_v1i = 8, 
+               cor_v0iv1i = -0.75)
+
+
+# Escenario 7
 # Población
-población <- Pob_ECA(n = 10000, 
-                           t = 8, 
-                           b0 = 44.9, 
-                           b1 = 0.11, 
-                           b2 = -2.3, 
-                           b3 = -0.2, 
-                           b4 = -2.3, 
-                           b5 = -0.2, 
-                           var_v0i = 102.01, 
-                           var_v1i = 0.1089, 
-                           cov_v0iv1i = -1.13322, 
-                           var_eij = 22.09)
+población <- Pob_ECA(n = 1000000, 
+                     t = 4, 
+                     b0 = 44.9, 
+                     b1 = 0.11, 
+                     b2 = -2.3, 
+                     b3 = 0, 
+                     b4 = -2.3, 
+                     b5 = 0, 
+                     var_v0i = 102.01, 
+                     var_v1i = 64, 
+                     cov_v0iv1i = -60.6, 
+                     var_eij = 22.09)
 
 yij_2_treat <-población$Treat_2$yij_2
 
-# Escenario_5.1
-Escenario_5.1 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
-                                    sample_min = 1, 
-                                    sample_max = 10, 
-                                    repeticiones = 10, 
-                                    t = 8,
-                                    k = 1000)
+
+#Escenarios --------------------------------------------------------------------
+
+# Escenario_7.1
+Escenario_7.1 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
+                                    sample_min = 10, 
+                                    sample_max = 30, 
+                                    repeticiones = 2500, 
+                                    t = 4,
+                                    k = 1)
 
 library(xlsx)
-#write.table(Escenario_5.1$Base, "Datos/Escenario 5/Base.txt")
-#write.table(Escenario_5.1$Gee_intercanbiable, "Datos/Escenario 5/Gee_intercanbiable.txt")
-#write.table(Escenario_5.1$Gee_AR1, "Datos/Escenario 5/Gee_AR1.txt")
-#write.table(Escenario_5.1$Gee_unstructured, "Datos/Escenario 5/Gee_unstructured.txt")
-#write.table(Escenario_5.1$Mixto_intercepto, "Datos/Escenario 5/Mixto_intercepto.txt")
-#write.table(Escenario_5.1$Mixto_pen_inter, "Datos/Escenario 5/Mixto_pen_inter.txt")
+write.table(Escenario_7.1$Base, "Datos/Escenario 7/Base.txt")
+write.table(Escenario_7.1$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
+write.table(Escenario_7.1$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
+write.table(Escenario_7.1$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
+write.table(Escenario_7.1$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
+write.table(Escenario_7.1$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
 
-# Escenario_5.2
-Escenario_5.2 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
-                                    sample_min = 1, 
+
+# Escenario_7.2
+Escenario_7.2 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
+                                    sample_min = 3, 
+                                    sample_max = 6, 
+                                    repeticiones = 2500, 
+                                    t = 4,
+                                    k = 10)
+
+
+write.table(Escenario_7.2$Base, "Datos/Escenario 7/Base.txt")
+write.table(Escenario_7.2$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
+write.table(Escenario_7.2$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
+write.table(Escenario_7.2$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
+write.table(Escenario_7.2$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
+write.table(Escenario_7.2$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
+
+
+# Escenario_7.3
+Escenario_7.3 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
+                                    sample_min = 3.5, 
+                                    sample_max = 5.5, 
+                                    repeticiones = 2500, 
+                                    t = 4,
+                                    k = 10)
+
+
+write.table(Escenario_7.3$Base, "Datos/Escenario 7/Base.txt")
+write.table(Escenario_7.3$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
+write.table(Escenario_7.3$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
+write.table(Escenario_7.3$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
+write.table(Escenario_7.3$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
+write.table(Escenario_7.3$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
+
+
+# Escenario_7.4
+Escenario_7.4 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
+                                    sample_min = 5, 
                                     sample_max = 10, 
                                     repeticiones = 2500, 
-                                    t = 8,
-                                    k = 100)
-
-#write.table(Escenario_5.2$Base, "Datos/Escenario 5/Base.txt")
-#write.table(Escenario_5.2$Gee_intercanbiable, "Datos/Escenario 5/Gee_intercanbiable.txt")
-#write.table(Escenario_5.2$Gee_AR1, "Datos/Escenario 5/Gee_AR1.txt")
-#write.table(Escenario_5.2$Gee_unstructured, "Datos/Escenario 5/Gee_unstructured.txt")
-#write.table(Escenario_5.2$Mixto_intercepto, "Datos/Escenario 5/Mixto_intercepto.txt")
-#write.table(Escenario_5.2$Mixto_pen_inter, "Datos/Escenario 5/Mixto_pen_inter.txt")
+                                    t = 4,
+                                    k = 10)
 
 
-# Escenario_5.3
-Escenario_5.3 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
+write.table(Escenario_7.4$Base, "Datos/Escenario 7/Base.txt")
+write.table(Escenario_7.4$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
+write.table(Escenario_7.4$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
+write.table(Escenario_7.4$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
+write.table(Escenario_7.4$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
+write.table(Escenario_7.4$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
+
+
+# Escenario_7.5
+Escenario_7.5 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
                                     sample_min = 1, 
                                     sample_max = 11, 
-                                    repeticiones = 10, 
-                                    t = 8,
-                                    k = 1000)
+                                    repeticiones = 2500, 
+                                    t = 4,
+                                    k = 100)
+
+
+write.table(Escenario_7.5$Base, "Datos/Escenario 7/Base.txt")
+write.table(Escenario_7.5$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
+write.table(Escenario_7.5$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
+write.table(Escenario_7.5$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
+write.table(Escenario_7.5$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
+write.table(Escenario_7.5$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
+
+# Escenario_7.6
+Escenario_7.6 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
+                                    sample_min = 1, 
+                                    sample_max = 11, 
+                                    repeticiones = 2500, 
+                                    t = 4,
+                                    k = 100)
+
+
+write.table(Escenario_7.6$Base, "Datos/Escenario 7/Base.txt")
+write.table(Escenario_7.6$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
+write.table(Escenario_7.6$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
+write.table(Escenario_7.6$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
+write.table(Escenario_7.6$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
+write.table(Escenario_7.6$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
+
+
+
+
+#graficos de comparación--------------------------------------------------------
+plot(Datos.unificados$Gee_int ~ Datos.unificados$ID, type = "b",          pch = "1", ylim = c(0.04, 0.12))
+lines(Escenario_7.5$Base$Mixto_inte ~ Escenario_7.5$Base$ID, type = "b", pch = "2", col = 2)
+lines(Escenario_7.5$Base$Gee_AR ~ Escenario_7.5$Base$ID, type = "b",     pch = "3", col = 3)
+lines(Escenario_7.5$Base$Gee_unst ~ Escenario_7.5$Base$ID, type = "b",   pch = "4", col = 4)
+lines(Escenario_7.5$Base$Mixto_pen_ ~ Escenario_7.5$Base$ID, type = "b", pch = "5", col = 5)
+
+library(ggplot2)
+ggplot(data = Datos.unificados, aes(x = log(ID), y = Gee_int )) +
+  geom_line()
+
+
+
+
 
 Escenario_5.2$Grafico +
   geom_hline(yintercept = 0.05)
