@@ -104,13 +104,7 @@ Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, 
   return(list(Treat_2 = resul_2_treat, Treat_3 = resul_3_treat ))
   
 }
-var_cov_v0iv1i <- function(sd_v0i, sd_v1i, cor_v0iv1i) {
-  var_v0i <- sd_v0i * sd_v0i  
-  var_v1i <- sd_v1i * sd_v1i
-  var_cov_v0iv1i <- cor_v0iv1i * ( sd_v0i * sd_v1i)
-  return(list(var_v0i = var_v0i,  var_v1i = var_v1i, var_cov_v0iv1i = var_cov_v0iv1i))
-}
-Comp_poder_2_treat <- function(yij_2_treat, sample_min, sample_max, repeticiones, t, k) {
+Comp_2_treat <- function(yij_2_treat, sample_min, sample_max, repeticiones, t, k) {
   
   #Semilla
   set.seed(16)
@@ -164,39 +158,148 @@ Comp_poder_2_treat <- function(yij_2_treat, sample_min, sample_max, repeticiones
   Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
   Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
   
-  Base <- as.data.frame(cbind(ID = (sample_min:(sample_max-1)*k),Gee_inter))
+  Base <- as.data.frame(cbind(ID = (sample_min:(sample_max-1)*k)))
+  Base <- mutate(Base,Gee_inter)
   Base <- mutate(Base,Gee_AR)
   Base <- mutate(Base,Gee_unst)
   Base <- mutate(Base,Mixto_inte)
   Base <- mutate(Base,Mixto_pen_)
   
   #Gráfica
-  Base_largo <- reshape(data = Base, varying = 2:6, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
-  colnames(Base_largo) <- c("n","modelo","Acepta_HO")
-  Base_largo<-arrange(Base_largo,n,modelo)
-  Base_largo$modelo <- factor(Base_largo$modelo, labels = c("Gee exchangeable", "Gee AR(1)", "Gee unstructured","Mixto intercepto aleatorio", "Mixto intercepto y pendiente aleatoria"))
+  #Base_largo <- reshape(data = Base, varying = 2:6, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
+  #colnames(Base_largo) <- c("n","modelo","Acepta_HO")
+  #Base_largo<-arrange(Base_largo,n,modelo)
+  #Base_largo$modelo <- factor(Base_largo$modelo, labels = c("Gee exchangeable", "Gee AR(1)", "Gee unstructured","Mixto intercepto aleatorio", "Mixto intercepto y pendiente aleatoria"))
   
-  Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = modelo)) +
-    geom_point(alpha = 0.3, size = 1) +
-    geom_smooth(method = loess, se = FALSE) +
-    theme_classic() +
-    labs(title="P", y="Poder", x="Tamaño de muestra", caption="Fuente: Simulación", size = 2 )
+  #Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = modelo)) +
+   # geom_point(alpha = 0.3, size = 1) +
+    #geom_smooth(method = loess, se = FALSE) +
+    #theme_classic() +
+    #labs(title="P", y="Poder", x="Tamaño de muestra", caption="Fuente: Simulación", size = 2 )
   
   return(list(Base = Base, Gee_intercanbiable = Gee_intercanbiable, Gee_AR1 = Gee_AR1,
               Gee_unstructured = Gee_unstructured, Mixto_intercepto = Mixto_intercepto,
-              Mixto_pen_inter = Mixto_pen_inter, Base_largo = Base_largo, 
-              Grafico = Grafico ))
+              Mixto_pen_inter = Mixto_pen_inter))#Base_largo = Base_largo, 
+              #Grafico = Grafico ))
   
 }
+Comp_3_treat <- function(yij_3_treat, sample_min, sample_max, repeticiones, t, k) {
+  
+  #Semilla
+  set.seed(16)
+  
+  #Librerías
+  library(dplyr)
+  library(gee)
+  library(ggplot2)
+  library(lmerTest)
+  library(lme4)
+  
+  #Matrices
+  Gee_intercanbiable_treat2 <- matrix(0,(sample_max-sample_min),repeticiones)
+  Gee_AR1_treat2            <- matrix(0,(sample_max-sample_min),repeticiones)
+  Gee_unstructured_treat2   <- matrix(0,(sample_max-sample_min),repeticiones)
+  Mixto_intercepto_treat2   <- matrix(0,(sample_max-sample_min),repeticiones)
+  Mixto_pen_inter_treat2    <- matrix(0,(sample_max-sample_min),repeticiones)
+  
+  Gee_intercanbiable_treat3 <- matrix(0,(sample_max-sample_min),repeticiones)
+  Gee_AR1_treat3            <- matrix(0,(sample_max-sample_min),repeticiones)
+  Gee_unstructured_treat3   <- matrix(0,(sample_max-sample_min),repeticiones)
+  Mixto_intercepto_treat3   <- matrix(0,(sample_max-sample_min),repeticiones)
+  Mixto_pen_inter_treat3    <- matrix(0,(sample_max-sample_min),repeticiones)
+  
+  #Bucle
+  for (i in (sample_min:sample_max)*k) {for(j in 1:repeticiones){
+    
+    sample_treat_1 <- yij_3_treat[sample(x = 1:(nrow(yij_3_treat)/3), size = i, replace = FALSE),]
+    sample_treat_2 <- yij_3_treat[sample(x = (nrow(yij_3_treat)/3+1):((nrow(yij_3_treat)/3)*2), size = i, replace = FALSE),]
+    sample_treat_3 <- yij_3_treat[sample(x = ((nrow(yij_3_treat)/3)*2+1):nrow(yij_3_treat), size = i, replace = FALSE),]
+    
+    sample <- bind_rows(sample_treat_1,sample_treat_2,sample_treat_3)
+    
+    sample_long <- reshape(data = sample,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+    sample_long <- arrange(sample_long,ID,tiempo)
+    sample_long$tiempo <- as.numeric(sample_long$tiempo)
+    sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
+    
+    #Modelos
+    intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
+    AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
+    unstructured   <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
+    intercepto     <- lmer(yij ~ treat + tiempo + treat * tiempo + (1|ID), data = sample_long, REML = FALSE)
+    pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
+    
+    #Completando las matrices con la decisión de la hipótesis
+    Gee_intercanbiable_treat2[(i/k)-(sample_min),j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[5,]/sqrt(intercanbiable$robust.variance[5,5]), 0, 1)        < 0.05) 1 else 0
+    Gee_AR1_treat2[(i/k)-(sample_min),j]            <-if(pnorm(as.matrix(AR1$coefficients)[5,]/sqrt(AR1$robust.variance[5,5]), 0, 1)                              < 0.05) 1 else 0
+    Gee_unstructured_treat2[(i/k)-(sample_min),j]   <-if(pnorm(as.matrix(unstructured$coefficients)[5,]/sqrt(unstructured$robust.variance[5,5]), 0, 1)            < 0.05) 1 else 0
+    Mixto_intercepto_treat2[(i/k)-(sample_min),j]   <-if(pt(as.matrix(intercepto@beta)[5,]/sqrt(intercepto@vcov_beta[5,5]), df = as.matrix(intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
+    Mixto_pen_inter_treat2[(i/k)-(sample_min),j]    <-if(pt(as.matrix(pen_intercepto@beta)[5,]/sqrt(pen_intercepto@vcov_beta[5,5]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
+    
+    Gee_intercanbiable_treat3[(i/k)-(sample_min),j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[6,]/sqrt(intercanbiable$robust.variance[6,6]), 0, 1)        < 0.05) 1 else 0
+    Gee_AR1_treat3[(i/k)-(sample_min),j]            <-if(pnorm(as.matrix(AR1$coefficients)[6]/sqrt(AR1$robust.variance[6,6]), 0, 1)                              < 0.05) 1 else 0
+    Gee_unstructured_treat3[(i/k)-(sample_min),j]   <-if(pnorm(as.matrix(unstructured$coefficients)[6,]/sqrt(unstructured$robust.variance[6,6]), 0, 1)            < 0.05) 1 else 0
+    Mixto_intercepto_treat3[(i/k)-(sample_min),j]   <-if(pt(as.matrix(intercepto@beta)[6,]/sqrt(intercepto@vcov_beta[6,6]), df = as.matrix(intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
+    Mixto_pen_inter_treat3[(i/k)-(sample_min),j]    <-if(pt(as.matrix(pen_intercepto@beta)[6,]/sqrt(pen_intercepto@vcov_beta[6,6]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
+    
+  }}
+  
+  #Base de datos
+  Gee_inter_treat2  <- as.matrix(apply(X = Gee_intercanbiable_treat2, MARGIN = 1, FUN = mean))
+  Gee_AR_treat2     <- as.matrix(apply(X = Gee_AR1_treat2,            MARGIN = 1, FUN = mean))
+  Gee_unst_treat2   <- as.matrix(apply(X = Gee_unstructured_treat2,   MARGIN = 1, FUN = mean))
+  Mixto_inte_treat2 <- as.matrix(apply(X = Mixto_intercepto_treat2,   MARGIN = 1, FUN = mean))
+  Mixto_pen__treat2 <- as.matrix(apply(X = Mixto_pen_inter_treat2,    MARGIN = 1, FUN = mean))
+  
+  Gee_inter_treat3  <- as.matrix(apply(X = Gee_intercanbiable_treat3, MARGIN = 1, FUN = mean))
+  Gee_AR_treat3     <- as.matrix(apply(X = Gee_AR1_treat3,            MARGIN = 1, FUN = mean))
+  Gee_unst_treat3   <- as.matrix(apply(X = Gee_unstructured_treat3,   MARGIN = 1, FUN = mean))
+  Mixto_inte_treat3 <- as.matrix(apply(X = Mixto_intercepto_treat3,   MARGIN = 1, FUN = mean))
+  Mixto_pen__treat3 <- as.matrix(apply(X = Mixto_pen_inter_treat3,    MARGIN = 1, FUN = mean))
+  
+  Base <- as.data.frame(cbind(ID = sample_min:(sample_max-1)))
+  Base <- mutate(Base,Gee_inter_treat2)
+  Base <- mutate(Base,Gee_AR_treat2)
+  Base <- mutate(Base,Gee_unst_treat2)
+  Base <- mutate(Base,Mixto_inte_treat2)
+  Base <- mutate(Base,Mixto_pen__treat2)
+  
+  Base <- mutate(Base,Gee_inter_treat3)
+  Base <- mutate(Base,Gee_AR_treat3)
+  Base <- mutate(Base,Gee_unst_treat3)
+  Base <- mutate(Base,Mixto_inte_treat3)
+  Base <- mutate(Base,Mixto_pen__treat3)
+  
+  #Gráfica
+  #Base_largo <- reshape(data = Base, varying = 2:11, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
+  #colnames(Base_largo) <- c("n","modelo","Acepta_HO")
+  #Base_largo<-arrange(Base_largo,n,modelo)
+  #Base_largo$modelo <- factor(Base_largo$modelo, labels = c("Gee exchangeable: treat 2", "Gee AR(1): treat 2", "Gee unstructured: treat 2",
+   #                                                         "Mixto intercepto aleatorio: treat 2", "Mixto intercepto y pendiente aleatoria: treat 2",
+    #                                                        "Gee exchangeable: treat 3", "Gee AR(1): treat 3", "Gee unstructured: treat 3",
+     #                                                       "Mixto intercepto aleatorio: treat 3", "Mixto intercepto y pendiente aleatoria: treat 3"))
+  
+  #Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = modelo)) +
+   # geom_point(alpha = 0.3, size = 1) +
+    #geom_smooth(method = loess, se = FALSE) +
+    #theme_classic() +
+    #labs(title="P", y="Poder", x="Tamaño de muestra", caption="Fuente: Simulación", size = 2 )
+  
+  return(list(Base = Base))# Grafico = Grafico, Base_largo = Base_largo))
+  
+}
+var_cov_v0iv1i <- function(sd_v0i, sd_v1i, cor_v0iv1i) {
+  var_v0i <- sd_v0i * sd_v0i  
+  var_v1i <- sd_v1i * sd_v1i
+  var_cov_v0iv1i <- cor_v0iv1i * ( sd_v0i * sd_v1i)
+  return(list(var_v0i = var_v0i,  var_v1i = var_v1i, var_cov_v0iv1i = var_cov_v0iv1i))
+}
 
-var_cov_v0iv1i(sd_v0i = 10.1, 
-               sd_v1i = 8, 
-               cor_v0iv1i = -0.75)
+# Escenario 10
+var_cov_v0iv1i(sd_v0i = 10.1, sd_v1i = 8, cor_v0iv1i = -0.75)
 
-
-# Escenario 7
 # Población
-población <- Pob_ECA(n = 1000000, 
+población <- Pob_ECA(n = 1000, 
                      t = 4, 
                      b0 = 44.9, 
                      b1 = 0.11, 
@@ -209,128 +312,22 @@ población <- Pob_ECA(n = 1000000,
                      cov_v0iv1i = -60.6, 
                      var_eij = 22.09)
 
-yij_2_treat <-población$Treat_2$yij_2
-
+yij_2_treat <- población$Treat_2$yij_2
+yij_3_treat <- población$Treat_3$yij_3
 
 #Escenarios --------------------------------------------------------------------
 
-# Escenario_7.1
-Escenario_7.1 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
-                                    sample_min = 10, 
-                                    sample_max = 30, 
-                                    repeticiones = 2500, 
-                                    t = 4,
-                                    k = 1)
+# Escenario
+Escenario <- Comp_2_treat(yij_2_treat = yij_2_treat, sample_min = 10, sample_max = 20, repeticiones = 10, t = 4, k = 1)
 
-library(xlsx)
-write.table(Escenario_7.1$Base, "Datos/Escenario 7/Base.txt")
-write.table(Escenario_7.1$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
-write.table(Escenario_7.1$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
-write.table(Escenario_7.1$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
-write.table(Escenario_7.1$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
-write.table(Escenario_7.1$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
+# Escenario_10.1
+Escenario <- Comp_3_treat(yij_2_treat = yij_2_treat, sample_min = 10, sample_max = 20, repeticiones = 10, t = 4, k = 1)
 
-
-# Escenario_7.2
-Escenario_7.2 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
-                                    sample_min = 3, 
-                                    sample_max = 6, 
-                                    repeticiones = 2500, 
-                                    t = 4,
-                                    k = 10)
-
-
-write.table(Escenario_7.2$Base, "Datos/Escenario 7/Base.txt")
-write.table(Escenario_7.2$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
-write.table(Escenario_7.2$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
-write.table(Escenario_7.2$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
-write.table(Escenario_7.2$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
-write.table(Escenario_7.2$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
-
-
-# Escenario_7.3
-Escenario_7.3 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
-                                    sample_min = 3.5, 
-                                    sample_max = 5.5, 
-                                    repeticiones = 2500, 
-                                    t = 4,
-                                    k = 10)
-
-
-write.table(Escenario_7.3$Base, "Datos/Escenario 7/Base.txt")
-write.table(Escenario_7.3$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
-write.table(Escenario_7.3$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
-write.table(Escenario_7.3$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
-write.table(Escenario_7.3$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
-write.table(Escenario_7.3$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
-
-
-# Escenario_7.4
-Escenario_7.4 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
-                                    sample_min = 5, 
-                                    sample_max = 10, 
-                                    repeticiones = 2500, 
-                                    t = 4,
-                                    k = 10)
-
-
-write.table(Escenario_7.4$Base, "Datos/Escenario 7/Base.txt")
-write.table(Escenario_7.4$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
-write.table(Escenario_7.4$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
-write.table(Escenario_7.4$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
-write.table(Escenario_7.4$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
-write.table(Escenario_7.4$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
-
-
-# Escenario_7.5
-Escenario_7.5 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
-                                    sample_min = 1, 
-                                    sample_max = 11, 
-                                    repeticiones = 2500, 
-                                    t = 4,
-                                    k = 100)
-
-
-write.table(Escenario_7.5$Base, "Datos/Escenario 7/Base.txt")
-write.table(Escenario_7.5$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
-write.table(Escenario_7.5$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
-write.table(Escenario_7.5$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
-write.table(Escenario_7.5$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
-write.table(Escenario_7.5$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
-
-# Escenario_7.6
-Escenario_7.6 <- Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
-                                    sample_min = 1, 
-                                    sample_max = 11, 
-                                    repeticiones = 2500, 
-                                    t = 4,
-                                    k = 100)
-
-
-write.table(Escenario_7.6$Base, "Datos/Escenario 7/Base.txt")
-write.table(Escenario_7.6$Gee_intercanbiable, "Datos/Escenario 7/Gee_intercanbiable.txt")
-write.table(Escenario_7.6$Gee_AR1, "Datos/Escenario 7/Gee_AR1.txt")
-write.table(Escenario_7.6$Gee_unstructured, "Datos/Escenario 7/Gee_unstructured.txt")
-write.table(Escenario_7.6$Mixto_intercepto, "Datos/Escenario 7/Mixto_intercepto.txt")
-write.table(Escenario_7.6$Mixto_pen_inter, "Datos/Escenario 7/Mixto_pen_inter.txt")
-
-
-
-
-#graficos de comparación--------------------------------------------------------
-plot(Datos.unificados$Gee_int ~ Datos.unificados$ID, type = "b",          pch = "1", ylim = c(0.04, 0.12))
-lines(Escenario_7.5$Base$Mixto_inte ~ Escenario_7.5$Base$ID, type = "b", pch = "2", col = 2)
-lines(Escenario_7.5$Base$Gee_AR ~ Escenario_7.5$Base$ID, type = "b",     pch = "3", col = 3)
-lines(Escenario_7.5$Base$Gee_unst ~ Escenario_7.5$Base$ID, type = "b",   pch = "4", col = 4)
-lines(Escenario_7.5$Base$Mixto_pen_ ~ Escenario_7.5$Base$ID, type = "b", pch = "5", col = 5)
-
-library(ggplot2)
-ggplot(data = Datos.unificados, aes(x = log(ID), y = Gee_int )) +
-  geom_line()
-
-
-
-
-
-Escenario_5.2$Grafico +
-  geom_hline(yintercept = 0.05)
+write.table(Escenario_10.1$Base, "Datos/Escenario 10/Base.txt")
+write.table(Escenario_10.1$Gee_intercanbiable, "Datos/Escenario 10/Gee_intercanbiable.txt")
+write.table(Escenario_10.1$Gee_AR1, "Datos/Escenario 10/Gee_AR1.txt")
+write.table(Escenario_10.1$Gee_unstructured, "Datos/Escenario 10/Gee_unstructured.txt")
+write.table(Escenario_10.1$Mixto_intercepto, "Datos/Escenario 10/Mixto_intercepto.txt")
+write.table(Escenario_10.1$Mixto_pen_inter, "Datos/Escenario 10/Mixto_pen_inter.txt")
+                                        
+                                        
