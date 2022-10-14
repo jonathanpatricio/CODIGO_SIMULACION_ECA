@@ -257,7 +257,7 @@ Comp_3_treat <- function(yij_3_treat, sample_min, sample_max, repeticiones, t, k
   Mixto_inte_treat3 <- as.matrix(apply(X = Mixto_intercepto_treat3,   MARGIN = 1, FUN = mean))
   Mixto_pen__treat3 <- as.matrix(apply(X = Mixto_pen_inter_treat3,    MARGIN = 1, FUN = mean))
   
-  Base <- as.data.frame(cbind(ID = sample_min:(sample_max-1)))
+  Base <- as.data.frame(cbind(ID = (sample_min:(sample_max-1)*k)))
   Base <- mutate(Base,Gee_inter_treat2)
   Base <- mutate(Base,Gee_AR_treat2)
   Base <- mutate(Base,Gee_unst_treat2)
