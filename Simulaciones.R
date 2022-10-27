@@ -502,7 +502,7 @@ población <- Pob_ECA(n = 1000000,
 
 yij_2_treat <- población$Treat_2$yij_2
 Escenario_5 <- Comp_2_treat(yij_2_treat = yij_2_treat, sample_min = 1, sample_max = 21, repeticiones = 2500, t = 8, k = 100)
-write.table(Escenario_2$Base, "Escenario_5.txt")
+write.table(Escenario_5$Base, "Escenario_5.txt")
 }# Escenario 5
                                         
                                         
