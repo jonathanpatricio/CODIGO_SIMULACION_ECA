@@ -484,32 +484,25 @@ Comp_2_treat_missing <- function(yij_2_treat, sample_min, sample_max, repeticion
                                         
                                         
 
-# Escenario 1
-var_cov_v0iv1i(sd_v0i = 10.1, sd_v1i = 8, cor_v0iv1i = -0.75)
-
+{
+# Escenario 5
 # Población
-población <- Pob_ECA(n = 1000, 
-                     t = 4, 
+población <- Pob_ECA(n = 1000000, 
+                     t = 8, 
                      b0 = 44.9, 
                      b1 = 0.11, 
-                     b2 = -2.3, 
-                     b3 = 0, 
-                     b4 = -2.3, 
-                     b5 = 0, 
+                     b2 = -2.30, 
+                     b3 = -0.5, 
+                     b4 = -2.30, 
+                     b5 = -0.5, 
                      var_v0i = 102.01, 
-                     var_v1i = 64, 
-                     cov_v0iv1i = -60.6, 
+                     var_v1i = 0.1089, 
+                     cov_v0iv1i = -1.13322, 
                      var_eij = 22.09)
 
 yij_2_treat <- población$Treat_2$yij_2
-yij_3_treat <- población$Treat_3$yij_3
-
-#Escenarios --------------------------------------------------------------------
-
-# Escenario
-Escenario <- Comp_2_treat(yij_2_treat = yij_2_treat, sample_min = 10, sample_max = 20, repeticiones = 10, t = 4, k = 1)
-
-# Escenario
-Escenario <- Comp_3_treat(yij_2_treat = yij_2_treat, sample_min = 10, sample_max = 20, repeticiones = 10, t = 4, k = 1)
+Escenario_5 <- Comp_2_treat(yij_2_treat = yij_2_treat, sample_min = 1, sample_max = 21, repeticiones = 2500, t = 8, k = 100)
+write.table(Escenario_2$Base, "Escenario_5.txt")
+}# Escenario 5
                                         
                                         
