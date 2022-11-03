@@ -143,12 +143,11 @@ Comp_2_treat <- function(yij_2_treat, sample_min, sample_max, repeticiones, t, k
     pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
     
     #Completando las matrices con la decisión de la hipótesis
-    Gee_intercanbiable[(i/k)-(sample_min),j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4]), 0, 1)        < 0.05) 1 else 0
-    Gee_AR1[(i/k)-(sample_min),j]            <-if(pnorm(as.matrix(AR1$coefficients)[4,]/sqrt(AR1$robust.variance[4,4]), 0, 1)                              < 0.05) 1 else 0
-    Gee_unstructured[(i/k)-(sample_min),j]   <-if(pnorm(as.matrix(unstructured$coefficients)[4,]/sqrt(unstructured$robust.variance[4,4]), 0, 1)            < 0.05) 1 else 0
-    Mixto_intercepto[(i/k)-(sample_min),j]   <-if(pt(as.matrix(intercepto@beta)[4,]/sqrt(intercepto@vcov_beta[4,4]), df = as.matrix(intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    Mixto_pen_inter[(i/k)-(sample_min),j]    <-if(pt(as.matrix(pen_intercepto@beta)[4,]/sqrt(pen_intercepto@vcov_beta[4,4]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    
+    Gee_intercanbiable[(i/k)-(sample_min),j] <- if((1-(pnorm(abs(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4])))))*2 < 0.05) 1 else 0
+    Gee_AR1[(i/k)-(sample_min),j]            <- if((1-(pnorm(abs(as.matrix(AR1$coefficients)[4,]/sqrt(AR1$robust.variance[4,4])))))*2 < 0.05) 1 else 0
+    Gee_unstructured[(i/k)-(sample_min),j]   <- if((1-(pnorm(abs(as.matrix(unstructured$coefficients)[4,]/sqrt(unstructured$robust.variance[4,4])))))*2 < 0.05) 1 else 0
+    Mixto_intercepto[(i/k)-(sample_min),j]   <- if( coef(summary(intercepto))[4,5] < 0.05) 1 else 0
+    Mixto_pen_inter[(i/k)-(sample_min),j]    <- if( coef(summary(pen_intercepto))[4,5] < 0.05) 1 else 0    
   }}
   
   #Base de datos
