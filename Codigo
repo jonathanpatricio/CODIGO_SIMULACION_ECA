@@ -1,58 +1,58 @@
-# Función que crea la población del ECA con dos y tres brazos de tratamiento
 Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, var_eij) {
   # Semilla para fijar los números aleatorios
   set.seed(16)
   
-  ## Librerías que utiliza la función
+  ## Librerías
   library(MASS)
   library(dplyr)
-
+  
   ## Parámetros del modelo
   
   # Tratamientos
-  treat <- as.numeric(as.numeric(cbind(rep(0, n), rep(1, n)))) # Vector de unos y ceros Para dos brazos de tratamientos 
+  treat <- as.numeric(as.numeric(cbind(rep(0, n), rep(1, n))))
   
-  treat_2 <- as.numeric(cbind(rep(0, n), rep(1, n), rep(0, n))) # Para tres brazos de tratamientos 
-  treat_3 <- as.numeric(cbind(rep(0, n), rep(0, n), rep(1, n))) # Para tres brazos de tratamientos 
+  treat_2 <- as.numeric(cbind(rep(0, n), rep(1, n), rep(0, n)))
+  treat_3 <- as.numeric(cbind(rep(0, n), rep(0, n), rep(1, n)))
   
   
-  # Tamaño total de la población
-  n_2 <- n*2  # Para dos brazos de tratamiento
-  n_3 <- n*3  # Para tres brazos de tratamiento
+  # Tamaño total
+  n_2 <- n*2
+  n_3 <- n*3
   
-  # t_ij 
-  t_j <- ((1:t)-1)/(t-1) # Estandarizando el vector que contiene los tiempos 
-  tij  <- matrix(rep(t_j), nrow = n_2, ncol = t, byrow = TRUE)    # Para dos brazos de tratamiento 
-  tij_ <- matrix(rep(t_j), nrow = n_3, ncol = t, byrow = TRUE)    # Para tres brazos de tratamiento
+  # t_ij
+  t_j <- ((1:t)-1)/(t-1)
+  tij <- matrix(rep(t_j), nrow=n_2, ncol=t, byrow = TRUE)
+  tij_ <- matrix(rep(t_j), nrow=n_3, ncol=t, byrow = TRUE)
   
   # Errores eij
-  mu_eij <- rep(0, t) # promedio de los errores # Vector de las medias de los errores
   cov_eij <- 0 # Covarianza de los errores
-  sigma_eij <- matrix(rep(cov_eij, t*t), nrow = t, ncol = t); diag(sigma_eij) <- rep(var_eij, t) # Matriz de varianzas y covarianzas
+  mu_eij <- rep(0, t) # promedio de los errores
+  sigma_eij <- matrix(rep(cov_eij, t*t), nrow=t, ncol=t); diag(sigma_eij) <- rep(var_eij, t) # Matriz de varianzas y covarianzas
   
-  eij  <- mvrnorm(n_2, mu_eij, sigma_eij) # Errores de acuerdo con los parámetros establecidos. Para dos brazos de tratamiento
-  eij_ <- mvrnorm(n_3, mu_eij, sigma_eij) # Errores de acuerdo con los parámetros establecidos. Para tres brazos de tratamiento
-    
+  eij <- mvrnorm(n_2, mu_eij, sigma_eij) #Errores de acuerdo con los parámetros establecidos
+  eij_ <- mvrnorm(n_3, mu_eij, sigma_eij) #Errores de acuerdo con los parámetros establecidos
+  #plot(eij, pch='.')
+  
   # Efectos aleatorios
   mu_v0iv1i  <- rep(0, 2) # promedio de los efectos aleatorios
-  sigma_v0iv1i  <- matrix(rep(cov_v0iv1i, 4), nrow = 2, ncol = 2); diag(sigma_v0iv1i) <- c(var_v0i, var_v1i) # Matriz de varianzas y covarianzas
+  sigma_v0iv1i  <- matrix(rep(cov_v0iv1i, 4), nrow=2, ncol=2); diag(sigma_v0iv1i) <- c(var_v0i, var_v1i) # Matriz de varianzas y covarianzas
   
-  v_i  <- mvrnorm(n_2, mu_v0iv1i, sigma_v0iv1i) #efectos aleatorios de acuerdo con los parámetros establecidos
+  v_i <- mvrnorm(n_2, mu_v0iv1i, sigma_v0iv1i) #efectos aleatorios de acuerdo con los parámetros establecidos
   v_i_ <- mvrnorm(n_3, mu_v0iv1i, sigma_v0iv1i) #efectos aleatorios de acuerdo con los parámetros establecidos
   
   # Efecto aleatorio del intercepto v_0i
-  v0i  <- v_i[,1]   # Para dos brazos de tratamiento
-  v0i_ <- v_i_[,1]  # Para tres brazos de tratamiento
+  v0i <- v_i[,1]
+  v0i_ <- v_i_[,1]
   
   # Efecto aleatorio de la pendiente v_1i
-  v1i <- v_i[,2]    # Para dos brazos de tratamiento
-  v1i_ <- v_i_[,2]  # Para tres brazos de tratamiento
+  v1i <- v_i[,2]
+  v1i_ <- v_i_[,2]
   
   # Beta_0
   b0_ <- b0 
   b0 <- b0 
   
-    # Beta_1
+  # Beta_1
   b1_ <- b1 
   b1 <- b1 
   
@@ -74,307 +74,71 @@ Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, 
   yij_2_treat <- as.data.frame(b0   + b2  +       v0i  + b1  * tij   + b3  * tij   +              v1i  * tij  + eij  )
   yij_3_treat <- as.data.frame(b0_  + b2_ + b4_ + v0i_ + b1_ * tij_  + b3_ * tij_  + b5_ * tij_ + v1i_ * tij_ + eij_ )
   
-  # Añadiendo ID y el identificador de los brazos de tratamiento a los datos simulados con dos brazos tratamiento
-  grupos <- as.numeric(as.numeric(cbind(rep(1, n), rep(2, n))))              # Creando un vector tipo factor para dos brazos de tratamiento
-  yij_2_treat <- mutate(yij_2_treat, treat = as.factor(grupos), ID = 1:n_2)  # Agregando el ID y el brazo de tratamiento a los datos simulados a lo ancho
+  grupos <- as.numeric(as.numeric(cbind(rep(1, n), rep(2, n))))
+  yij_2_treat <- mutate(yij_2_treat, treat = as.factor(grupos), ID = 1:n_2)
   
-  # Añadiendo ID y el identificador de los brazos de tratamiento a los datos simulados con tres brazos de tratamiento
-  grupos_ <- as.factor(cbind(rep(1, n), rep(2, n), rep(3, n)))    # Creando un vector tipo factor para dos brazos de tratamiento
-  yij_3_treat <- mutate(yij_3_treat, treat = grupos_, ID = 1:n_3) # Agregando el ID y el brazo de tratamiento a los datos simulados a lo ancho
+  grupos_ <- as.factor(cbind(rep(1, n), rep(2, n), rep(3, n)))
+  yij_3_treat <- mutate(yij_3_treat, treat = grupos_, ID = 1:n_3)
   
   # estimación y_ij a lo largo
-  yij_2_treat_long <- reshape(data = yij_2_treat,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long") # Para dos brazos de tratamiento
-  yij_3_treat_long <- reshape(data = yij_3_treat,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long") # Para tres brazos de tratamiento
+  yij_2_treat_long <- reshape(data = yij_2_treat,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+  yij_2_treat_long <- arrange(yij_2_treat_long,ID,tiempo)
+  yij_2_treat_long$tiempo <- as.numeric(yij_2_treat_long$tiempo)
+  yij_2_treat_long$tiempo <- (yij_2_treat_long$tiempo-1)/(t-1)
+  
+  
+  yij_3_treat_long <- reshape(data = yij_3_treat,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+  yij_3_treat_long <- arrange(yij_3_treat_long,ID,tiempo)
+  yij_3_treat_long$tiempo <- as.numeric(yij_3_treat_long$tiempo)
+  yij_3_treat_long$tiempo <- (yij_3_treat_long$tiempo-1)/(t-1)
   
   # Matriz de correlación 
-  cor_2_treat <- cor(yij_2_treat[,1:t])  # Para dos brazos de tratamiento
-  cor_3_treat <- cor(yij_3_treat[,1:t])  # Para tres brazos de tratamiento
+  cor_2_treat <- cor(yij_2_treat[,1:t])
+  cor_3_treat <- cor(yij_3_treat[,1:t])
   
   # Listado de resultados
-  resul_2_treat <- list(yij_2 = yij_2_treat, yij_long_2 = yij_2_treat_long, v_i_2 = v_i,  eij_2 = eij, cor_2 = cor_2_treat)  # Para dos brazos de tratamiento
-  resul_3_treat <- list(yij_3 = yij_3_treat, yij_long_3 = yij_3_treat_long, v_i_3 = v_i_, eij_3 = eij_, cor_3 = cor_3_treat) # Para tres brazos de tratamiento
+  resul_2_treat <- list(yij_2 = yij_2_treat, yij_long_2 = yij_2_treat_long, v_i_2 = v_i, eij_2 = eij, cor_2 = cor_2_treat)
+  resul_3_treat <- list(yij_3 = yij_3_treat, yij_long_3 = yij_3_treat_long, v_i_3 = v_i_, eij_3 = eij_, cor_3 = cor_3_treat)
   
   return(list(Treat_2 = resul_2_treat, Treat_3 = resul_3_treat ))
-  
 }
-
-# Estableciento valores a la función creada para simular los datos del ECA con dos y tres brazos de tratamiento
-
-#Población basal con 8 mediciones repetidas
-población_basal <- Pob_ECA(n = 1000000, 
-                        t = 8, 
-                        b0 = 44.9, 
-                        b1 = 0.11, 
-                        b2 = -2.3, 
-                        b3 = -0.02, 
-                        b4 = -2.3, 
-                        b5 = -0.02, 
-                        var_v0i = 102.01, 
-                        var_v1i = 0.1089, 
-                        cov_v0iv1i = -1.13322, 
-                        var_eij = 22.09)
-
-#Exportando los datos simulados a Excel
-library(xlsx)
-write.table(población_basal$Treat_2$yij_2, "Datos/Población basal/Población_basal_Treat_2.txt")
-write.table(población_basal$Treat_2$cor_2, "Datos/Población basal/Población_basal_cor_2.txt")
-
-write.table(población_basal$Treat_3$yij_3, "Datos/Población basal/Población_basal_Treat_3.txt")
-write.table(población_basal$Treat_3$cor_3, "Datos/Población basal/Población_basal_cor_3.txt")
-
-#Gráfica de tendencia de los datos simulados
-par(mfrow = c(2, 2))
-library(lme4)
-
-set.seed(16)
-#Dos brazos y 8 mediciones
-sample_2treat_8rep <- población_basal$Treat_2$yij_2[sample(población_basal$Treat_2$yij_2$ID, size = 100, replace = FALSE),]
-sample_2treat_8rep_largo <- reshape(data = sample_2treat_8rep, varying = 1:8, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
-sample_2treat_8rep_largo <- arrange(sample_2treat_8rep_largo,ID,tiempo)
-
-with(sample_2treat_8rep_largo,interaction.plot(tiempo, ID, yij,
-                                               legend = FALSE,
-                                               cex = 3,
-                                               col = "blue",
-                                               main = "n = 100; 2 tratamientos",
-                                               xlab ="Mediciones",
-                                               ylab = "valores de la PCS"))
-
-abline(a = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
-                           data = sample_2treat_8rep_largo,
-                           REML = FALSE)@beta)[1,], 
-       b = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
-                           data = sample_2treat_8rep_largo,
-                           REML = FALSE)@beta)[4,],
-       col = "red",
-       lwd = 3,
-       lty = 2)
-
-#Tres brazos y 8 mediciones
-set.seed(16)
-sample_3treat_8rep <- población_basal$Treat_3$yij_3[sample(población_basal$Treat_3$yij_3$ID, size = 150, replace = FALSE),]
-sample_3treat_8rep_largo <- reshape(data = sample_3treat_8rep, varying = 1:8, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
-sample_3treat_8rep_largo <- arrange(sample_3treat_8rep_largo,ID,tiempo)
-
-with(sample_3treat_8rep_largo,interaction.plot(tiempo, ID, yij,
-                                               legend = FALSE,
-                                               col = "blue",
-                                               main = "n = 150; 3 tratamientos",
-                                               xlab = "Mediciones",
-                                               ylab = "valores de la PCS"))
-
-
-abline(a = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
-                           data = sample_3treat_8rep_largo,
-                           REML = FALSE)@beta)[1,], 
-       b = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
-                           data = sample_3treat_8rep_largo,
-                           REML = FALSE)@beta)[4,],
-       col = "red",
-       lwd = 3,
-       lty = 2)               
-
-
-
-
-#Población basal con 4 mediciones repetidas
-población_basal_4mediciones <- Pob_ECA(n = 1000000, 
-                           t = 4, 
-                           b0 = 44.9, 
-                           b1 = 0.11, 
-                           b2 = -2.3, 
-                           b3 = -0.02, 
-                           b4 = -2.3, 
-                           b5 = -0.02, 
-                           var_v0i = 102.01, 
-                           var_v1i = 0.1089, 
-                           cov_v0iv1i = -1.13322, 
-                           var_eij = 22.09)
-
-#Exportando los datos simulados a Excel
-write.table(población_basal_4mediciones$Treat_2$yij_2, "Datos/Población basal/población_basal_4mediciones_Treat_2.txt")
-write.table(población_basal_4mediciones$Treat_2$cor_2, "Datos/Población basal/población_basal_4mediciones_cor_2.txt")
-
-write.table(población_basal_4mediciones$Treat_3$yij_3, "Datos/Población basal/población_basal_4mediciones_Treat_3.txt")
-write.table(población_basal_4mediciones$Treat_3$cor_3, "Datos/Población basal/población_basal_4mediciones_cor_3.txt")
-
-#Gráfica de tendencia de los datos simulados
-#Dos brazos y 4 mediciones
-set.seed(17)
-sample_2treat_4rep <- población_basal_4mediciones$Treat_2$yij_2[sample(población_basal_4mediciones$Treat_2$yij_2$ID, size = 100, replace = FALSE),]
-sample_2treat_4rep_largo <- reshape(data = sample_2treat_4rep, varying = 1:4, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
-sample_2treat_4rep_largo <- arrange(sample_2treat_4rep_largo,ID,tiempo)
-
-with(sample_2treat_4rep_largo,interaction.plot(tiempo, ID, yij,
-                                               legend = FALSE,
-                                               col = "blue",
-                                               #main = "n = 100; 2 tratamientos",
-                                               xlab = "Mediciones",
-                                               ylab = "valores de la PCS"))
-
-abline(a = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
-                           data = sample_2treat_4rep_largo,
-                           REML = FALSE)@beta)[1,], 
-       b = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
-                           data = sample_2treat_4rep_largo,
-                           REML = FALSE)@beta)[4,],
-       col = "red",
-       lwd = 3,
-       lty = 2)
-
-
-
-#Tres brazos y 4 mediciones
-set.seed(16)
-sample_3treat_4rep <- población_basal_4mediciones$Treat_3$yij_3[sample(población_basal_4mediciones$Treat_3$yij_3$ID, size = 150, replace = FALSE),]
-sample_3treat_4rep_largo <- reshape(data = sample_3treat_4rep, varying = 1:4, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
-sample_3treat_4rep_largo <- arrange(sample_3treat_4rep_largo,ID,tiempo)
-
-with(sample_3treat_4rep_largo,interaction.plot(tiempo, ID, yij,
-                                               legend = FALSE,
-                                               col = "blue",
-                                               #main="n = 150; 3 tratamientos",
-                                               xlab="Mediciones",
-                                               ylab = "valores de la PCS"))
-
-abline(a = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
-                           data = sample_3treat_4rep_largo,
-                           REML = FALSE)@beta)[1,], 
-       b = as.matrix( lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),
-                           data = sample_3treat_4rep_largo,
-                           REML = FALSE)@beta)[4,],
-       col = "red",
-       lwd = 3,
-       lty = 2)
-
-
-
-###########################################################################################################################
-#Función que compara los modelos para dos brazos de tratamiento
-Comp_poder_2_treat <- function(yij_2_treat, sample_min, sample_max, repeticiones, t) {
-
-#Semilla
-set.seed(16)
-
-#Librerías
-library(dplyr)
-library(gee)
-library(ggplot2)
-library(lmerTest)
-library(lme4)
-
-#Muestras
-
-#Matrices
-Gee_intercanbiable <- matrix(0,(sample_max-sample_min),repeticiones)
-Gee_AR1            <- matrix(0,(sample_max-sample_min),repeticiones)
-Gee_unstructured   <- matrix(0,(sample_max-sample_min),repeticiones)
-Mixto_intercepto   <- matrix(0,(sample_max-sample_min),repeticiones)
-Mixto_pen_inter    <- matrix(0,(sample_max-sample_min),repeticiones)
-
-#Bucle
-for (i in sample_min:sample_max) {for(j in 1:repeticiones){
-
-sample_treat_1 <- yij_2_treat[sample(x = 1:(nrow(yij_2_treat)/2), size = i, replace = FALSE),]
-sample_treat_2 <- yij_2_treat[sample(x = (nrow(yij_2_treat)/2+1):nrow(yij_2_treat), size = i, replace = FALSE),]
-sample <- bind_rows(sample_treat_1,sample_treat_2)
-
-sample_long <- reshape(data = sample,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
-sample_long <- arrange(sample_long,ID,tiempo)
-sample_long$tiempo <- as.numeric(sample_long$tiempo)
-sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
-
-#Modelos
-intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
-AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
-unstructured   <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
-intercepto     <- lmer(yij ~ treat + tiempo + treat * tiempo + (1|ID), data = sample_long, REML = FALSE)
-pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
-
-#Completando las matrices con la desición de la hipótesis
-Gee_intercanbiable[i-sample_min,j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4]), 0, 1)        < 0.05) 1 else 0
-Gee_AR1[i-sample_min,j]            <-if(pnorm(as.matrix(AR1$coefficients)[4,]/sqrt(AR1$robust.variance[4,4]), 0, 1)                              < 0.05) 1 else 0
-Gee_unstructured[i-sample_min,j]   <-if(pnorm(as.matrix(unstructured$coefficients)[4,]/sqrt(unstructured$robust.variance[4,4]), 0, 1)            < 0.05) 1 else 0
-Mixto_intercepto[i-sample_min,j]   <-if(pt(as.matrix(intercepto@beta)[4,]/sqrt(intercepto@vcov_beta[4,4]), df = as.matrix(intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-Mixto_pen_inter[i-sample_min,j]    <-if(pt(as.matrix(pen_intercepto@beta)[4,]/sqrt(pen_intercepto@vcov_beta[4,4]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-
-}}
-
-#Base de datos
-Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
-Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
-Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
-Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
-Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
-
-Base <- as.data.frame(cbind(ID = sample_min:(sample_max-1),Gee_inter))
-Base <- mutate(Base,Gee_AR)
-Base <- mutate(Base,Gee_unst)
-Base <- mutate(Base,Mixto_inte)
-Base <- mutate(Base,Mixto_pen_)
-
-#Gráfica
-Base_largo <- reshape(data = Base, varying = 2:6, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
-colnames(Base_largo) <- c("n","modelo","Acepta_HO")
-Base_largo<-arrange(Base_largo,n,modelo)
-Base_largo$modelo <- factor(Base_largo$modelo, labels = c("Gee exchangeable", "Gee AR(1)", "Gee unstructured","Mixto intercepto aleatorio", "Mixto intercepto y pendiente aleatoria"))
-
-Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = modelo)) +
-  geom_point(alpha = 0.3, size = 1) +
-  geom_smooth(method = loess, se = FALSE) +
-  theme_classic() +
-  labs(title="P", y="Poder", x="Tamaño de muestra", caption="Fuente: Simulación", size = 2 )
-
-return(list(Base = Base, Gee_intercanbiable = Gee_intercanbiable, Gee_AR1 = Gee_AR1,
-            Gee_unstructured = Gee_unstructured, Mixto_intercepto = Mixto_intercepto,
-            Mixto_pen_inter = Mixto_pen_inter, Base_largo = Base_largo, Grafico = Grafico ))
-
-}
-
-#Parámetros
-yij_2_treat <- estimaciones$Treat_2$yij_2
-Comp_poder_2_treat(yij_2_treat = yij_2_treat, 
-                   sample_min = 10, 
-                   sample_max = 25, 
-                   repeticiones = 30, 
-                   t = 8)
-
-#---------------------------------------------------------------------------------------------------------------------
-#Función que compara los modelos para dos brazos de tratamiento
-
-Comp_error_tipoI_3_treat <- function(yij_3_treat, sample_min, sample_max, repeticiones, t) {
+Comp_modelos <- function(base, treat, n, repeticiones, t) {
   
-  #Semilla
+  # Capturando la hora de inicio del la función
+  Inicio <- Now()
+  
+  # Semilla para fijar los resultados
   set.seed(16)
   
-  #Librerías
+  # Librerías que utiliza la función
   library(dplyr)
   library(gee)
   library(ggplot2)
   library(lmerTest)
   library(lme4)
   
-  #Matrices
-  Gee_intercanbiable_treat2 <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_AR1_treat2            <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_unstructured_treat2   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_intercepto_treat2   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_pen_inter_treat2    <- matrix(0,(sample_max-sample_min),repeticiones)
+  # Matrices que guandaran los resultados de las hipótesis planteadas para 2 y 2 tratamientos
+  Gee_intercanbiable    <- matrix(0,length(n),repeticiones)
+  Gee_AR1               <- matrix(0,length(n),repeticiones)
+  Gee_unstructured      <- matrix(0,length(n),repeticiones) 
+  Mixto_intercepto      <- matrix(0,length(n),repeticiones)
+  Mixto_pen_inter       <- matrix(0,length(n),repeticiones)
   
-  Gee_intercanbiable_treat3 <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_AR1_treat3            <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_unstructured_treat3   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_intercepto_treat3   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_pen_inter_treat3    <- matrix(0,(sample_max-sample_min),repeticiones)
+  Gee_intercanbiable_3  <- matrix(0,length(n),repeticiones)
+  Gee_AR1_3             <- matrix(0,length(n),repeticiones)
+  Gee_unstructured_3    <- matrix(0,length(n),repeticiones) 
+  Mixto_intercepto_3    <- matrix(0,length(n),repeticiones)
+  Mixto_pen_inter_3     <- matrix(0,length(n),repeticiones)
   
-  #Bucle
-  for (i in sample_min:sample_max) {for(j in 1:repeticiones){
+  # Cálculos para 2 tratamientos
+  if(treat == 2){ 
+  
+  # Bucle para 2 tratamientos
+  for (i in 1:length(n)) {for(j in 1:repeticiones){ 
     
-    sample_treat_1 <- yij_3_treat[sample(x = 1:(nrow(yij_3_treat)/3), size = i, replace = FALSE),]
-    sample_treat_2 <- yij_3_treat[sample(x = (nrow(yij_3_treat)/3+1):((nrow(yij_3_treat)/3)*2), size = i, replace = FALSE),]
-    sample_treat_3 <- yij_3_treat[sample(x = ((nrow(yij_3_treat)/3)*2+1):nrow(yij_3_treat), size = i, replace = FALSE),]
-    
-    sample <- bind_rows(sample_treat_1,sample_treat_2,sample_treat_3)
+    sample_treat_1 <- base[sample(x = 1:(nrow(base)/2),            size = n[[i]], replace = FALSE),]
+    sample_treat_2 <- base[sample(x = (nrow(base)/2+1):nrow(base), size = n[[i]], replace = FALSE),]
+    sample         <- bind_rows(sample_treat_1,sample_treat_2)
     
     sample_long <- reshape(data = sample,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
     sample_long <- arrange(sample_long,ID,tiempo)
@@ -382,80 +146,113 @@ Comp_error_tipoI_3_treat <- function(yij_3_treat, sample_min, sample_max, repeti
     sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
     
     #Modelos
-    intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
-    AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
-    unstructured   <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
-    intercepto     <- lmer(yij ~ treat + tiempo + treat * tiempo + (1|ID), data = sample_long, REML = FALSE)
-    pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
+    intercanbiable <- gee (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "exchangeable")
+    AR1            <- gee (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
+    unstructured   <- gee (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "unstructured")
+    intercepto     <- lmer(formula = yij ~ treat + tiempo + treat * tiempo + (1     |ID), data = sample_long, REML = FALSE)
+    pen_intercepto <- lmer(formula = yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
     
     #Completando las matrices con la decisión de la hipótesis
-    Gee_intercanbiable_treat2[i-sample_min,j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[5,]/sqrt(intercanbiable$robust.variance[5,5]), 0, 1)        < 0.05) 1 else 0
-    Gee_AR1_treat2[i-sample_min,j]            <-if(pnorm(as.matrix(AR1$coefficients)[5,]/sqrt(AR1$robust.variance[5,5]), 0, 1)                              < 0.05) 1 else 0
-    Gee_unstructured_treat2[i-sample_min,j]   <-if(pnorm(as.matrix(unstructured$coefficients)[5,]/sqrt(unstructured$robust.variance[5,5]), 0, 1)            < 0.05) 1 else 0
-    Mixto_intercepto_treat2[i-sample_min,j]   <-if(pt(as.matrix(intercepto@beta)[5,]/sqrt(intercepto@vcov_beta[5,5]), df = as.matrix(intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    Mixto_pen_inter_treat2[i-sample_min,j]    <-if(pt(as.matrix(pen_intercepto@beta)[5,]/sqrt(pen_intercepto@vcov_beta[5,5]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    
-    Gee_intercanbiable_treat3[i-sample_min,j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[6,]/sqrt(intercanbiable$robust.variance[6,6]), 0, 1)        < 0.05) 1 else 0
-    Gee_AR1_treat3[i-sample_min,j]            <-if(pnorm(as.matrix(AR1$coefficients)[6]/sqrt(AR1$robust.variance[6,6]), 0, 1)                              < 0.05) 1 else 0
-    Gee_unstructured_treat3[i-sample_min,j]   <-if(pnorm(as.matrix(unstructured$coefficients)[6,]/sqrt(unstructured$robust.variance[6,6]), 0, 1)            < 0.05) 1 else 0
-    Mixto_intercepto_treat3[i-sample_min,j]   <-if(pt(as.matrix(intercepto@beta)[6,]/sqrt(intercepto@vcov_beta[6,6]), df = as.matrix(intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    Mixto_pen_inter_treat3[i-sample_min,j]    <-if(pt(as.matrix(pen_intercepto@beta)[6,]/sqrt(pen_intercepto@vcov_beta[6,6]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    
+
+    Gee_intercanbiable [i,j]  <- if((1-(pnorm(abs(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4])))))*2 < 0.05) 1 else 0
+    Gee_AR1            [i,j]  <- if((1-(pnorm(abs(as.matrix(AR1$coefficients)[4,]/sqrt(AR1$robust.variance[4,4])))))*2 < 0.05) 1 else 0
+    Gee_unstructured   [i,j]  <- if((1-(pnorm(abs(as.matrix(unstructured$coefficients)[4,]/sqrt(unstructured$robust.variance[4,4])))))*2 < 0.05) 1 else 0
+    Mixto_intercepto   [i,j]  <- if(coef(summary(intercepto))[4,5]     < 0.05) 1 else 0
+    Mixto_pen_inter    [i,j]  <- if(coef(summary(pen_intercepto))[4,5] < 0.05) 1 else 0
+
   }}
   
-  #Base de datos
-  Gee_inter_treat2  <- as.matrix(apply(X = Gee_intercanbiable_treat2, MARGIN = 1, FUN = mean))
-  Gee_AR_treat2     <- as.matrix(apply(X = Gee_AR1_treat2,            MARGIN = 1, FUN = mean))
-  Gee_unst_treat2   <- as.matrix(apply(X = Gee_unstructured_treat2,   MARGIN = 1, FUN = mean))
-  Mixto_inte_treat2 <- as.matrix(apply(X = Mixto_intercepto_treat2,   MARGIN = 1, FUN = mean))
-  Mixto_pen__treat2 <- as.matrix(apply(X = Mixto_pen_inter_treat2,    MARGIN = 1, FUN = mean))
+  #Base de datos para 2 tratamientos
+  Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+  Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
+  Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
+  Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
+  Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
   
-  Gee_inter_treat3  <- as.matrix(apply(X = Gee_intercanbiable_treat3, MARGIN = 1, FUN = mean))
-  Gee_AR_treat3     <- as.matrix(apply(X = Gee_AR1_treat3,            MARGIN = 1, FUN = mean))
-  Gee_unst_treat3   <- as.matrix(apply(X = Gee_unstructured_treat3,   MARGIN = 1, FUN = mean))
-  Mixto_inte_treat3 <- as.matrix(apply(X = Mixto_intercepto_treat3,   MARGIN = 1, FUN = mean))
-  Mixto_pen__treat3 <- as.matrix(apply(X = Mixto_pen_inter_treat3,    MARGIN = 1, FUN = mean))
+  Base <- as.data.frame(cbind(n = n ))
+  Base <- mutate(Base,Gee_inter)
+  Base <- mutate(Base,Gee_AR)
+  Base <- mutate(Base,Gee_unst)
+  Base <- mutate(Base,Mixto_inte)
+  Base <- mutate(Base,Mixto_pen_)
+  } else {"Favor indicar 2 o 3  tratamientos en treat"}
   
-  Base <- as.data.frame(cbind(ID = sample_min:(sample_max-1),Gee_inter_treat2))
-  Base <- mutate(Base,Gee_AR_treat2)
-  Base <- mutate(Base,Gee_unst_treat2)
-  Base <- mutate(Base,Mixto_inte_treat2)
-  Base <- mutate(Base,Mixto_pen__treat2)
+  # Cálculos para 2 tratamientos
+  if(treat == 3){    
+    
+    # Bucle para 3 tratamientos
+    for (i in 1:length(n)) {for(j in 1:repeticiones){
+      
+      sample_treat_1 <- base[sample(x = 1:(nrow(base)/3),                    size = n[[i]], replace = FALSE),]
+      sample_treat_2 <- base[sample(x = (nrow(base)/3+1):((nrow(base)/3)*2), size = n[[i]], replace = FALSE),]
+      sample_treat_3 <- base[sample(x = ((nrow(base)/3)*2+1):nrow(base),     size = n[[i]], replace = FALSE),]
+      
+      sample <- bind_rows(sample_treat_1,sample_treat_2,sample_treat_3)
+      
+      sample_long <- reshape(data = sample,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+      sample_long <- arrange(sample_long,ID,tiempo)
+      sample_long$tiempo <- as.numeric(sample_long$tiempo)
+      sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
+      
+      #Modelos
+      intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID,       data = sample_long, family = gaussian, corstr = "exchangeable")
+      AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID,       data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
+      unstructured   <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID,       data = sample_long, family = gaussian, corstr = "unstructured")
+      intercepto     <- lmer(yij ~ treat + tiempo + treat * tiempo + (1|ID),      data = sample_long, REML = FALSE)
+      pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
+      
+      #Completando las matrices con la decisión de la hipótesis
+      
+      Gee_intercanbiable   [i,j]  <- if((1-(pnorm(abs(as.matrix(intercanbiable$coefficients)[5,]/sqrt(intercanbiable$robust.variance[5,5])))))*2 < 0.05) 1 else 0
+      Gee_AR1              [i,j]  <- if((1-(pnorm(abs(as.matrix(AR1$coefficients)[5,]/sqrt(AR1$robust.variance[5,5])))))*2 < 0.05) 1 else 0
+      Gee_unstructured     [i,j]  <- if((1-(pnorm(abs(as.matrix(unstructured$coefficients)[5,]/sqrt(unstructured$robust.variance[5,5])))))*2 < 0.05) 1 else 0
+      Mixto_intercepto     [i,j]  <- if(coef(summary(intercepto))[5,5]     < 0.05) 1 else 0
+      Mixto_pen_inter      [i,j]  <- if(coef(summary(pen_intercepto))[5,5] < 0.05) 1 else 0
+      
+      Gee_intercanbiable_3 [i,j]  <- if((1-(pnorm(abs(as.matrix(intercanbiable$coefficients)[6,]/sqrt(intercanbiable$robust.variance[6,6])))))*2 < 0.05) 1 else 0
+      Gee_AR1_3            [i,j]  <- if((1-(pnorm(abs(as.matrix(AR1$coefficients)[6,]/sqrt(AR1$robust.variance[6,6])))))*2 < 0.05) 1 else 0
+      Gee_unstructured_3   [i,j]  <- if((1-(pnorm(abs(as.matrix(unstructured$coefficients)[6,]/sqrt(unstructured$robust.variance[6,6])))))*2 < 0.05) 1 else 0
+      Mixto_intercepto_3   [i,j]  <- if(coef(summary(intercepto))[6,5]     < 0.05) 1 else 0
+      Mixto_pen_inter_3    [i,j]  <- if(coef(summary(pen_intercepto))[6,5] < 0.05) 1 else 0
+      
+      
+    }}
+    
+    #Base de datos para 3 tratamientos
+    Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+    Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
+    Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
+    Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
+    Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
+    
+    Gee_inter_3  <- as.matrix(apply(X = Gee_intercanbiable_3, MARGIN = 1, FUN = mean))
+    Gee_AR_3       <- as.matrix(apply(X = Gee_AR1_3,            MARGIN = 1, FUN = mean))
+    Gee_unst_3     <- as.matrix(apply(X = Gee_unstructured_3,   MARGIN = 1, FUN = mean))
+    Mixto_inte_3   <- as.matrix(apply(X = Mixto_intercepto_3,   MARGIN = 1, FUN = mean))
+    Mixto_pen_3   <- as.matrix(apply(X = Mixto_pen_inter_3,    MARGIN = 1, FUN = mean))
+    
+    Base <- as.data.frame(cbind(ID = n ))
+    Base <- mutate(Base,Gee_inter)
+    Base <- mutate(Base,Gee_AR)
+    Base <- mutate(Base,Gee_unst)
+    Base <- mutate(Base,Mixto_inte)
+    Base <- mutate(Base,Mixto_pen_)
+    
+    Base <- mutate(Base,Gee_inter_3)
+    Base <- mutate(Base,Gee_AR_3)
+    Base <- mutate(Base,Gee_unst_3)
+    Base <- mutate(Base,Mixto_inte_3)
+    Base <- mutate(Base,Mixto_pen_3)
+    
+    } else {"Favor indicar 2 o 3  tratamientos en treat"}
   
-  Base <- mutate(Base,Gee_inter_treat3)
-  Base <- mutate(Base,Gee_AR_treat3)
-  Base <- mutate(Base,Gee_unst_treat3)
-  Base <- mutate(Base,Mixto_inte_treat3)
-  Base <- mutate(Base,Mixto_pen__treat3)
   
-  #Gráfica
-  Base_largo <- reshape(data = Base, varying = 2:11, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
-  colnames(Base_largo) <- c("n","modelo","Acepta_HO")
-  #Base_largo<-arrange(Base_largo,n,modelo)
-  Base_largo$modelo <- factor(Base_largo$modelo, labels = c("Gee exchangeable: treat 2", "Gee AR(1): treat 2", "Gee unstructured: treat 2",
-                                                            "Mixto intercepto aleatorio: treat 2", "Mixto intercepto y pendiente aleatoria: treat 2",
-                                                            "Gee exchangeable: treat 3", "Gee AR(1): treat 3", "Gee unstructured: treat 3",
-                                                            "Mixto intercepto aleatorio: treat 3", "Mixto intercepto y pendiente aleatoria: treat 3"))
+  # Capturando la hora de término del la función
+  Fin <- Now()
   
-  Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = modelo)) +
-    geom_point(alpha = 0.3, size = 1) +
-    geom_smooth(method = loess, se = FALSE) +
-    theme_classic() +
-    labs(title="P", y="Poder", x="Tamaño de muestra", caption="Fuente: Simulación", size = 2 )
+  # Calculando la duración
+  Duración <- Fin - Inicio; print(Duración)
   
-  return(list(Base = Base, Grafico = Grafico, Base_largo = Base_largo))
-  
+  # Retornando los resultados
+  return(Base = Base)
 }
-
-#Parámetros
-yij_3_treat <- estimaciones$Treat_3$yij_3
-comparaciones_2 <- Comp_error_tipoI_3_treat(yij_3_treat = yij_3_treat, 
-                         sample_min = 10, 
-                         sample_max = 30, 
-                         repeticiones = 30, 
-                         t = 8)
-
-comparaciones_2$Grafico +
-  geom_hline(yintercept = 0.05)
-
-
