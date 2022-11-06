@@ -256,3 +256,9 @@ Comp_modelos <- function(base, treat, n, repeticiones, t) {
   # Retornando los resultados
   return(Base = Base)
 }
+var_cov_v0iv1i <- function(sd_v0i, sd_v1i, cor_v0iv1i) {
+  var_v0i <- sd_v0i * sd_v0i  
+  var_v1i <- sd_v1i * sd_v1i
+  var_cov_v0iv1i <- cor_v0iv1i * ( sd_v0i * sd_v1i)
+  return(list(var_v0i = var_v0i,  var_v1i = var_v1i, var_cov_v0iv1i = var_cov_v0iv1i))
+}
