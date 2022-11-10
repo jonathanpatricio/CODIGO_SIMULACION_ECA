@@ -104,379 +104,170 @@ Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, 
   return(list(Treat_2 = resul_2_treat, Treat_3 = resul_3_treat ))
   
 }
-Comp_2_treat <- function(yij_2_treat, sample_min, sample_max, repeticiones, t, k) {
-  
-  #Semilla
-  set.seed(16)
-  
-  #Librerías
-  library(dplyr)
-  library(gee)
-  library(ggplot2)
-  library(lmerTest)
-  library(lme4)
-  
-  #Matrices
-  Gee_intercanbiable <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_AR1            <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_unstructured   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_intercepto   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_pen_inter    <- matrix(0,(sample_max-sample_min),repeticiones)
-  
-  #Bucle
-  for (i in (sample_min:sample_max)*k) {for(j in 1:repeticiones){
-    
-    sample_treat_1 <- yij_2_treat[sample(x = 1:(nrow(yij_2_treat)/2), size = i, replace = FALSE),]
-    sample_treat_2 <- yij_2_treat[sample(x = (nrow(yij_2_treat)/2+1):nrow(yij_2_treat), size = i, replace = FALSE),]
-    sample <- bind_rows(sample_treat_1,sample_treat_2)
-    
-    sample_long <- reshape(data = sample,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
-    sample_long <- arrange(sample_long,ID,tiempo)
-    sample_long$tiempo <- as.numeric(sample_long$tiempo)
-    sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
-    
-    #Modelos
-    intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
-    AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
-    unstructured   <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
-    intercepto     <- lmer(yij ~ treat + tiempo + treat * tiempo + (1|ID), data = sample_long, REML = FALSE)
-    pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
-    
-    #Completando las matrices con la decisión de la hipótesis
-    Gee_intercanbiable[(i/k)-(sample_min),j] <- if((1-(pnorm(abs(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4])))))*2 < 0.05) 1 else 0
-    Gee_AR1[(i/k)-(sample_min),j]            <- if((1-(pnorm(abs(as.matrix(AR1$coefficients)[4,]/sqrt(AR1$robust.variance[4,4])))))*2 < 0.05) 1 else 0
-    Gee_unstructured[(i/k)-(sample_min),j]   <- if((1-(pnorm(abs(as.matrix(unstructured$coefficients)[4,]/sqrt(unstructured$robust.variance[4,4])))))*2 < 0.05) 1 else 0
-    Mixto_intercepto[(i/k)-(sample_min),j]   <- if( coef(summary(intercepto))[4,5] < 0.05) 1 else 0
-    Mixto_pen_inter[(i/k)-(sample_min),j]    <- if( coef(summary(pen_intercepto))[4,5] < 0.05) 1 else 0    
-  }}
-  
-  #Base de datos
-  Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
-  Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
-  Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
-  Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
-  Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
-  
-  Base <- as.data.frame(cbind(ID = (sample_min:(sample_max-1)*k)))
-  Base <- mutate(Base,Gee_inter)
-  Base <- mutate(Base,Gee_AR)
-  Base <- mutate(Base,Gee_unst)
-  Base <- mutate(Base,Mixto_inte)
-  Base <- mutate(Base,Mixto_pen_)
-  
-  #Gráfica
-  #Base_largo <- reshape(data = Base, varying = 2:6, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
-  #colnames(Base_largo) <- c("n","modelo","Acepta_HO")
-  #Base_largo<-arrange(Base_largo,n,modelo)
-  #Base_largo$modelo <- factor(Base_largo$modelo, labels = c("Gee exchangeable", "Gee AR(1)", "Gee unstructured","Mixto intercepto aleatorio", "Mixto intercepto y pendiente aleatoria"))
-  
-  #Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = modelo)) +
-   # geom_point(alpha = 0.3, size = 1) +
-    #geom_smooth(method = loess, se = FALSE) +
-    #theme_classic() +
-    #labs(title="P", y="Poder", x="Tamaño de muestra", caption="Fuente: Simulación", size = 2 )
-  
-  return(list(Base = Base, Gee_intercanbiable = Gee_intercanbiable, Gee_AR1 = Gee_AR1,
-              Gee_unstructured = Gee_unstructured, Mixto_intercepto = Mixto_intercepto,
-              Mixto_pen_inter = Mixto_pen_inter))#Base_largo = Base_largo, 
-              #Grafico = Grafico ))
-  
-}
-Comp_3_treat <- function(yij_3_treat, sample_min, sample_max, repeticiones, t, k) {
-  
-  #Semilla
-  set.seed(16)
-  
-  #Librerías
-  library(dplyr)
-  library(gee)
-  library(ggplot2)
-  library(lmerTest)
-  library(lme4)
-  
-  #Matrices
-  Gee_intercanbiable_treat2 <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_AR1_treat2            <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_unstructured_treat2   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_intercepto_treat2   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_pen_inter_treat2    <- matrix(0,(sample_max-sample_min),repeticiones)
-  
-  Gee_intercanbiable_treat3 <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_AR1_treat3            <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_unstructured_treat3   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_intercepto_treat3   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_pen_inter_treat3    <- matrix(0,(sample_max-sample_min),repeticiones)
-  
-  #Bucle
-  for (i in (sample_min:sample_max)*k) {for(j in 1:repeticiones){
-    
-    sample_treat_1 <- yij_3_treat[sample(x = 1:(nrow(yij_3_treat)/3), size = i, replace = FALSE),]
-    sample_treat_2 <- yij_3_treat[sample(x = (nrow(yij_3_treat)/3+1):((nrow(yij_3_treat)/3)*2), size = i, replace = FALSE),]
-    sample_treat_3 <- yij_3_treat[sample(x = ((nrow(yij_3_treat)/3)*2+1):nrow(yij_3_treat), size = i, replace = FALSE),]
-    
-    sample <- bind_rows(sample_treat_1,sample_treat_2,sample_treat_3)
-    
-    sample_long <- reshape(data = sample,varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
-    sample_long <- arrange(sample_long,ID,tiempo)
-    sample_long$tiempo <- as.numeric(sample_long$tiempo)
-    sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
-    
-    #Modelos
-    intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
-    AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
-    unstructured   <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
-    intercepto     <- lmer(yij ~ treat + tiempo + treat * tiempo + (1|ID), data = sample_long, REML = FALSE)
-    pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
-    
-    #Completando las matrices con la decisión de la hipótesis
-    Gee_intercanbiable_treat2[(i/k)-(sample_min),j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[5,]/sqrt(intercanbiable$robust.variance[5,5]), 0, 1)        < 0.05) 1 else 0
-    Gee_AR1_treat2[(i/k)-(sample_min),j]            <-if(pnorm(as.matrix(AR1$coefficients)[5,]/sqrt(AR1$robust.variance[5,5]), 0, 1)                              < 0.05) 1 else 0
-    Gee_unstructured_treat2[(i/k)-(sample_min),j]   <-if(pnorm(as.matrix(unstructured$coefficients)[5,]/sqrt(unstructured$robust.variance[5,5]), 0, 1)            < 0.05) 1 else 0
-    Mixto_intercepto_treat2[(i/k)-(sample_min),j]   <-if(pt(as.matrix(intercepto@beta)[5,]/sqrt(intercepto@vcov_beta[5,5]), df = as.matrix(intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    Mixto_pen_inter_treat2[(i/k)-(sample_min),j]    <-if(pt(as.matrix(pen_intercepto@beta)[5,]/sqrt(pen_intercepto@vcov_beta[5,5]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    
-    Gee_intercanbiable_treat3[(i/k)-(sample_min),j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[6,]/sqrt(intercanbiable$robust.variance[6,6]), 0, 1)        < 0.05) 1 else 0
-    Gee_AR1_treat3[(i/k)-(sample_min),j]            <-if(pnorm(as.matrix(AR1$coefficients)[6]/sqrt(AR1$robust.variance[6,6]), 0, 1)                              < 0.05) 1 else 0
-    Gee_unstructured_treat3[(i/k)-(sample_min),j]   <-if(pnorm(as.matrix(unstructured$coefficients)[6,]/sqrt(unstructured$robust.variance[6,6]), 0, 1)            < 0.05) 1 else 0
-    Mixto_intercepto_treat3[(i/k)-(sample_min),j]   <-if(pt(as.matrix(intercepto@beta)[6,]/sqrt(intercepto@vcov_beta[6,6]), df = as.matrix(intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    Mixto_pen_inter_treat3[(i/k)-(sample_min),j]    <-if(pt(as.matrix(pen_intercepto@beta)[6,]/sqrt(pen_intercepto@vcov_beta[6,6]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    
-  }}
-  
-  #Base de datos
-  Gee_inter_treat2  <- as.matrix(apply(X = Gee_intercanbiable_treat2, MARGIN = 1, FUN = mean))
-  Gee_AR_treat2     <- as.matrix(apply(X = Gee_AR1_treat2,            MARGIN = 1, FUN = mean))
-  Gee_unst_treat2   <- as.matrix(apply(X = Gee_unstructured_treat2,   MARGIN = 1, FUN = mean))
-  Mixto_inte_treat2 <- as.matrix(apply(X = Mixto_intercepto_treat2,   MARGIN = 1, FUN = mean))
-  Mixto_pen__treat2 <- as.matrix(apply(X = Mixto_pen_inter_treat2,    MARGIN = 1, FUN = mean))
-  
-  Gee_inter_treat3  <- as.matrix(apply(X = Gee_intercanbiable_treat3, MARGIN = 1, FUN = mean))
-  Gee_AR_treat3     <- as.matrix(apply(X = Gee_AR1_treat3,            MARGIN = 1, FUN = mean))
-  Gee_unst_treat3   <- as.matrix(apply(X = Gee_unstructured_treat3,   MARGIN = 1, FUN = mean))
-  Mixto_inte_treat3 <- as.matrix(apply(X = Mixto_intercepto_treat3,   MARGIN = 1, FUN = mean))
-  Mixto_pen__treat3 <- as.matrix(apply(X = Mixto_pen_inter_treat3,    MARGIN = 1, FUN = mean))
-  
-  Base <- as.data.frame(cbind(ID = (sample_min:(sample_max-1)*k)))
-  Base <- mutate(Base,Gee_inter_treat2)
-  Base <- mutate(Base,Gee_AR_treat2)
-  Base <- mutate(Base,Gee_unst_treat2)
-  Base <- mutate(Base,Mixto_inte_treat2)
-  Base <- mutate(Base,Mixto_pen__treat2)
-  
-  Base <- mutate(Base,Gee_inter_treat3)
-  Base <- mutate(Base,Gee_AR_treat3)
-  Base <- mutate(Base,Gee_unst_treat3)
-  Base <- mutate(Base,Mixto_inte_treat3)
-  Base <- mutate(Base,Mixto_pen__treat3)
-  
-  #Gráfica
-  #Base_largo <- reshape(data = Base, varying = 2:11, v.names = "Poder", timevar= "Modelo", idvar = "ID", direction = "long")
-  #colnames(Base_largo) <- c("n","modelo","Acepta_HO")
-  #Base_largo<-arrange(Base_largo,n,modelo)
-  #Base_largo$modelo <- factor(Base_largo$modelo, labels = c("Gee exchangeable: treat 2", "Gee AR(1): treat 2", "Gee unstructured: treat 2",
-   #                                                         "Mixto intercepto aleatorio: treat 2", "Mixto intercepto y pendiente aleatoria: treat 2",
-    #                                                        "Gee exchangeable: treat 3", "Gee AR(1): treat 3", "Gee unstructured: treat 3",
-     #                                                       "Mixto intercepto aleatorio: treat 3", "Mixto intercepto y pendiente aleatoria: treat 3"))
-  
-  #Grafico <- ggplot(data = Base_largo, aes(x = n, y = Acepta_HO, color = modelo)) +
-   # geom_point(alpha = 0.3, size = 1) +
-    #geom_smooth(method = loess, se = FALSE) +
-    #theme_classic() +
-    #labs(title="P", y="Poder", x="Tamaño de muestra", caption="Fuente: Simulación", size = 2 )
-  
-  return(list(Base = Base))# Grafico = Grafico, Base_largo = Base_largo))
-  
-}
 var_cov_v0iv1i <- function(sd_v0i, sd_v1i, cor_v0iv1i) {
   var_v0i <- sd_v0i * sd_v0i  
   var_v1i <- sd_v1i * sd_v1i
   var_cov_v0iv1i <- cor_v0iv1i * ( sd_v0i * sd_v1i)
   return(list(var_v0i = var_v0i,  var_v1i = var_v1i, var_cov_v0iv1i = var_cov_v0iv1i))
 }
-
-Comp_2_treat_missing <- function(yij_2_treat, sample_min, sample_max, repeticiones, t, k, m) {
+Comp_modelos <- function(base, treat, n, repeticiones, t) {
   
-  #Semilla
+  # Capturando la hora de inicio del la función
+  Inicio <- DescTools::Now()
+  
+  # Semilla para fijar los resultados
   set.seed(16)
   
-  #Librerías
+  # Librerías que utiliza la función
   library(dplyr)
-  library(gee)
-  library(ggplot2)
   library(lmerTest)
   library(lme4)
+  library(geepack)
   
-  library(survey)
-  library(sampling)
-
-  #Matrices
-  Gee_intercanbiable <- matrix(0,(sample_max-sample_min),repeticiones)
-  #Gee_AR1            <- matrix(0,(sample_max-sample_min),repeticiones)
-  Gee_unstructured   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_intercepto   <- matrix(0,(sample_max-sample_min),repeticiones)
-  Mixto_pen_inter    <- matrix(0,(sample_max-sample_min),repeticiones)
+  # Matrices que guardarán los resultados de las hipótesis planteadas para 2 y 3 tratamientos
+  Gee_intercanbiable    <- matrix(0,length(n),repeticiones)
+  Gee_AR1               <- matrix(0,length(n),repeticiones)
+  Gee_unstructured      <- matrix(0,length(n),repeticiones) 
+  Mixto_intercepto      <- matrix(0,length(n),repeticiones)
+  Mixto_pen_inter       <- matrix(0,length(n),repeticiones)
   
-  missing_treat_1    <- matrix(0,(sample_max-sample_min),repeticiones)
-  missing_treat_2    <- matrix(0,(sample_max-sample_min),repeticiones)
+  Gee_intercanbiable_3  <- matrix(0,length(n),repeticiones)
+  Gee_AR1_3             <- matrix(0,length(n),repeticiones)
+  Gee_unstructured_3    <- matrix(0,length(n),repeticiones) 
+  Mixto_intercepto_3    <- matrix(0,length(n),repeticiones)
+  Mixto_pen_inter_3     <- matrix(0,length(n),repeticiones)
   
-  #Bucle
-  for (i in (sample_min:sample_max)*k) {for(j in 1:repeticiones){
+  # Cálculos para 2 tratamientos
+  if(treat == 2){ 
     
-    sample_treat_1 <- yij_2_treat[sample(x = 1:(nrow(yij_2_treat)/2), size = i, replace = FALSE),]
+    # Bucle para 2 tratamientos
+    for (i in 1:length(n)) {for(j in 1:repeticiones){ 
+      
+      sample_treat_1 <- base[sample(x = 1:(nrow(base)/2),            size = n[[i]], replace = FALSE),]
+      sample_treat_2 <- base[sample(x = (nrow(base)/2+1):nrow(base), size = n[[i]], replace = FALSE),]
+      sample         <- bind_rows(sample_treat_1,sample_treat_2)
+      
+      sample_long <- reshape(data = sample, varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+      sample_long <- arrange(sample_long,ID,tiempo)
+      sample_long$treat <- as.factor(sample_long$treat)
+      sample_long$tiempo <- as.numeric(sample_long$tiempo)
+      sample_long$tiempo <- (sample_long$tiempo-1)/(t-1) # acá se estandariza el tiempo (de cero a uno) y garantiza que entre una medición y otra "t" tenga la misma distancia.
+      
+      #Modelos
+      intercanbiable <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,      id = ID, data =  sample_long, family = gaussian, corstr = "exchangeable")
+      AR1            <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,      id = ID, data =  sample_long, family = gaussian, corstr = "ar1")
+      unstructured   <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,      id = ID, data =  sample_long, family = gaussian, corstr = "unstructured")
+      intercepto     <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo +  (1     |ID), data = sample_long, REML = FALSE)
+      pen_intercepto <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo +  (tiempo|ID), data = sample_long, REML = FALSE)
+      
+      #Completando las matrices con la decisión de la hipótesis
+      
+      Gee_intercanbiable [i,j]  <- if((1-(pnorm( abs(coef(summary(intercanbiable))[4,1] / coef(summary(intercanbiable))[4,2] ))))*2 < 0.05) 1 else 0
+      Gee_AR1            [i,j]  <- if((1-(pnorm( abs(coef(summary(AR1))[4,1]            / coef(summary(AR1))[4,2]            ))))*2 < 0.05) 1 else 0
+      Gee_unstructured   [i,j]  <- if((1-(pnorm( abs(coef(summary(unstructured))[4,1]   / coef(summary(unstructured))[4,2]   ))))*2 < 0.05) 1 else 0
+      Mixto_intercepto   [i,j]  <- if(coef(summary(intercepto))    [4,5]                                                            < 0.05) 1 else 0
+      Mixto_pen_inter    [i,j]  <- if(coef(summary(pen_intercepto))[4,5]                                                            < 0.05) 1 else 0
+                         
+      print("2")
+      
+    }}
     
-    # Eliminando las observaciones paara simular las pérdidas de seguimiento para el tratamiento 1 
+    #Base de datos para 2 tratamientos
+    Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+    Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
+    Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
+    Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
+    Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
     
-    t1 <- as.data.frame(cbind(ID = sample_treat_1$ID, t1 = sample_treat_1$V1) )
+    Base <- as.data.frame(cbind(n = n))
     
-    t2 <- cbind(ID = sample_treat_1$ID, t2 = sample_treat_1$V2, umbral = cut(x = sample_treat_1$V2, breaks = c(-Inf, quantile(x = sample_treat_1$V2, probs = 0.10), quantile(x = sample_treat_1$V2, probs = 0.90),Inf))) 
-    t2_borrar <- sampling::strata(data = t2, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_1)*m/(t-1))*0.4), ceiling((nrow(sample_treat_1)*m/(t-1))*0.2), ceiling((nrow(sample_treat_1)*m/(t-1))*0.4)))[,2]
-    t2 <- as.data.frame(t2[-t2_borrar,] )
-    
-    t3 <- cbind(ID = sample_treat_1$ID, t3 = sample_treat_1$V3, umbral = cut(x = sample_treat_1$V3, breaks = c(-Inf, quantile(x = sample_treat_1$V3, probs = 0.10), quantile(x = sample_treat_1$V3, probs = 0.90),Inf))) 
-    t3_borrar <- sampling::strata(data = t3, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_1)*m/(t-1))*0.4), ceiling((nrow(sample_treat_1)*m/(t-1))*0.2), ceiling((nrow(sample_treat_1)*m/(t-1))*0.4)))[,2]
-    t3_borrar <- c(t2_borrar,t3_borrar)
-    t3 <- as.data.frame(t3[-t3_borrar,])
-    
-    t4 <- cbind(ID = sample_treat_1$ID, t4 = sample_treat_1$V4, umbral = cut(x = sample_treat_1$V4, breaks = c(-Inf, quantile(x = sample_treat_1$V4, probs = 0.10), quantile(x = sample_treat_1$V4, probs = 0.90),Inf))) 
-    t4_borrar <- sampling::strata(data = t4, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_1)*m/(t-1))*0.4), ceiling((nrow(sample_treat_1)*m/(t-1))*0.2), ceiling((nrow(sample_treat_1)*m/(t-1))*0.4)))[,2]
-    t4_borrar <- c(t3_borrar,t4_borrar)
-    t4 <- as.data.frame(t4[-t4_borrar,])  
-    
-    t5 <- cbind(ID = sample_treat_1$ID, t5 = sample_treat_1$V5, umbral = cut(x = sample_treat_1$V5, breaks = c(-Inf, quantile(x = sample_treat_1$V5, probs = 0.10), quantile(x = sample_treat_1$V5, probs = 0.90),Inf))) 
-    t5_borrar <- sampling::strata(data = t5, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_1)*m/(t-1))*0.4), ceiling((nrow(sample_treat_1)*m/(t-1))*0.2), ceiling((nrow(sample_treat_1)*m/(t-1))*0.4)))[,2]
-    t5_borrar <- c(t4_borrar,t5_borrar)
-    t5 <- as.data.frame(t5[-t5_borrar,])  
-    
-    t6 <- cbind(ID = sample_treat_1$ID, t6 = sample_treat_1$V6, umbral = cut(x = sample_treat_1$V6, breaks = c(-Inf, quantile(x = sample_treat_1$V6, probs = 0.10), quantile(x = sample_treat_1$V6, probs = 0.90),Inf))) 
-    t6_borrar <- sampling::strata(data = t6, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_1)*m/(t-1))*0.4), ceiling((nrow(sample_treat_1)*m/(t-1))*0.2), ceiling((nrow(sample_treat_1)*m/(t-1))*0.4)))[,2]
-    t6_borrar <- c(t5_borrar,t6_borrar)
-    t6 <- as.data.frame(t6[-t6_borrar,]) 
-    
-    t7 <- cbind(ID = sample_treat_1$ID, t7 = sample_treat_1$V7, umbral = cut(x = sample_treat_1$V7, breaks = c(-Inf, quantile(x = sample_treat_1$V7, probs = 0.10), quantile(x = sample_treat_1$V7, probs = 0.90),Inf))) 
-    t7_borrar <- sampling::strata(data = t7, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_1)*m/(t-1))*0.4), ceiling((nrow(sample_treat_1)*m/(t-1))*0.2), ceiling((nrow(sample_treat_1)*m/(t-1))*0.4)))[,2]
-    t7_borrar <- c(t6_borrar,t7_borrar)
-    t7 <- as.data.frame(t7[-t7_borrar,]) 
-    
-    t8 <- cbind(ID = sample_treat_1$ID, t8 = sample_treat_1$V8, umbral = cut(x = sample_treat_1$V8, breaks = c(-Inf, quantile(x = sample_treat_1$V8, probs = 0.10), quantile(x = sample_treat_1$V8, probs = 0.90),Inf))) 
-    t8_borrar <- sampling::strata(data = t8, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_1)*m/(t-1))*0.4), ceiling((nrow(sample_treat_1)*m/(t-1))*0.2), ceiling((nrow(sample_treat_1)*m/(t-1))*0.4)))[,2]
-    t8_borrar <- c(t7_borrar,t8_borrar)
-    t8 <- as.data.frame(t8[-t8_borrar,]) 
-    
-    sample_treat_1_perdidas <- full_join(x = t1,    y = t2, by = "ID")
-    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t3, by = "ID")
-    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t4, by = "ID")
-    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t5, by = "ID")
-    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t6, by = "ID")
-    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t7, by = "ID")
-    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t8, by = "ID")
-    sample_treat_1_perdidas <- mutate(sample_treat_1_perdidas, treat = rep(1, nrow(sample_treat_1)))
-    
-    sample_treat_1_perdidas <- sample_treat_1_perdidas[,-c(4,6,8,10,12,14,16)]
-    
-    missing_treat_1[(i/k)-(sample_min),j]    <- length(t8_borrar)/nrow(sample_treat_1_perdidas)
-    
-    # Eliminando las observaciones paara simular las pérdidas de seguimiento para el tratamiento 2
-    
-    sample_treat_2 <- yij_2_treat[sample(x = (nrow(yij_2_treat)/2+1):nrow(yij_2_treat), size = i, replace = FALSE),]
-    
-    t1 <- as.data.frame(cbind(ID = sample_treat_2$ID, t1 = sample_treat_2$V1) )
-    
-    t2 <- cbind(ID = sample_treat_2$ID, t2 = sample_treat_2$V2, umbral = cut(x = sample_treat_2$V2, breaks = c(-Inf, quantile(x = sample_treat_2$V2, probs = 0.10), quantile(x = sample_treat_2$V2, probs = 0.90),Inf))) 
-    t2_borrar <- sampling::strata(data = t2, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_2)*m/(t-1))*0.4), ceiling((nrow(sample_treat_2)*m/(t-1))*0.2), ceiling((nrow(sample_treat_2)*m/(t-1))*0.4)))[,2]
-    t2 <- as.data.frame(t2[-t2_borrar,] )
-    
-    t3 <- cbind(ID = sample_treat_2$ID, t3 = sample_treat_2$V3, umbral = cut(x = sample_treat_2$V3, breaks = c(-Inf, quantile(x = sample_treat_2$V3, probs = 0.10), quantile(x = sample_treat_2$V3, probs = 0.90),Inf))) 
-    t3_borrar <- sampling::strata(data = t3, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_2)*m/(t-1))*0.4), ceiling((nrow(sample_treat_2)*m/(t-1))*0.2), ceiling((nrow(sample_treat_2)*m/(t-1))*0.4)))[,2]
-    t3_borrar <- c(t2_borrar,t3_borrar)
-    t3 <- as.data.frame(t3[-t3_borrar,])
-    
-    t4 <- cbind(ID = sample_treat_2$ID, t4 = sample_treat_2$V4, umbral = cut(x = sample_treat_2$V4, breaks = c(-Inf, quantile(x = sample_treat_2$V4, probs = 0.10), quantile(x = sample_treat_2$V4, probs = 0.90),Inf))) 
-    t4_borrar <- sampling::strata(data = t4, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_2)*m/(t-1))*0.4), ceiling((nrow(sample_treat_2)*m/(t-1))*0.2), ceiling((nrow(sample_treat_2)*m/(t-1))*0.4)))[,2]
-    t4_borrar <- c(t3_borrar,t4_borrar)
-    t4 <- as.data.frame(t4[-t4_borrar,])  
-    
-    t5 <- cbind(ID = sample_treat_2$ID, t5 = sample_treat_2$V5, umbral = cut(x = sample_treat_2$V5, breaks = c(-Inf, quantile(x = sample_treat_2$V5, probs = 0.10), quantile(x = sample_treat_2$V5, probs = 0.90),Inf))) 
-    t5_borrar <- sampling::strata(data = t5, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_2)*m/(t-1))*0.4), ceiling((nrow(sample_treat_2)*m/(t-1))*0.2), ceiling((nrow(sample_treat_2)*m/(t-1))*0.4)))[,2]
-    t5_borrar <- c(t4_borrar,t5_borrar)
-    t5 <- as.data.frame(t5[-t5_borrar,])  
-    
-    t6 <- cbind(ID = sample_treat_2$ID, t6 = sample_treat_2$V6, umbral = cut(x = sample_treat_2$V6, breaks = c(-Inf, quantile(x = sample_treat_2$V6, probs = 0.10), quantile(x = sample_treat_2$V6, probs = 0.90),Inf))) 
-    t6_borrar <- sampling::strata(data = t6, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_2)*m/(t-1))*0.4), ceiling((nrow(sample_treat_2)*m/(t-1))*0.2), ceiling((nrow(sample_treat_2)*m/(t-1))*0.4)))[,2]
-    t6_borrar <- c(t5_borrar,t6_borrar)
-    t6 <- as.data.frame(t6[-t6_borrar,]) 
-    
-    t7 <- cbind(ID = sample_treat_2$ID, t7 = sample_treat_2$V7, umbral = cut(x = sample_treat_2$V7, breaks = c(-Inf, quantile(x = sample_treat_2$V7, probs = 0.10), quantile(x = sample_treat_2$V7, probs = 0.90),Inf))) 
-    t7_borrar <- sampling::strata(data = t7, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_2)*m/(t-1))*0.4), ceiling((nrow(sample_treat_2)*m/(t-1))*0.2), ceiling((nrow(sample_treat_2)*m/(t-1))*0.4)))[,2]
-    t7_borrar <- c(t6_borrar,t7_borrar)
-    t7 <- as.data.frame(t7[-t7_borrar,]) 
-    
-    t8 <- cbind(ID = sample_treat_2$ID, t8 = sample_treat_2$V8, umbral = cut(x = sample_treat_2$V8, breaks = c(-Inf, quantile(x = sample_treat_2$V8, probs = 0.10), quantile(x = sample_treat_2$V8, probs = 0.90),Inf))) 
-    t8_borrar <- sampling::strata(data = t8, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(sample_treat_2)*m/(t-1))*0.4), ceiling((nrow(sample_treat_2)*m/(t-1))*0.2), ceiling((nrow(sample_treat_2)*m/(t-1))*0.4)))[,2]
-    t8_borrar <- c(t7_borrar,t8_borrar)
-    t8 <- as.data.frame(t8[-t8_borrar,]) 
-    
-    sample_treat_2_perdidas <- full_join(x = t1,    y = t2, by = "ID")
-    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t3, by = "ID")
-    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t4, by = "ID")
-    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t5, by = "ID")
-    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t6, by = "ID")
-    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t7, by = "ID")
-    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t8, by = "ID")
-    sample_treat_2_perdidas <- mutate(sample_treat_2_perdidas, treat = rep(2, nrow(sample_treat_2_perdidas)))
-    
-    sample_treat_2_perdidas <- sample_treat_2_perdidas[,-c(4,6,8,10,12,14,16)]  
-    
-    missing_treat_2[(i/k)-(sample_min),j]    <- length(t8_borrar)/nrow(sample_treat_2_perdidas)
-    
-    # Uniendo las bases de los tratamientos con pérdidas de seguimiento
-    
-    sample <- bind_rows(sample_treat_1_perdidas,sample_treat_2_perdidas)
-    
-    # Pasando la base a formato ancho
-    
-    sample_long <- reshape(data = sample,varying = 2:(t+1), v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
-    sample_long <- arrange(sample_long,ID,tiempo)
-    sample_long$tiempo <- as.numeric(sample_long$tiempo)
-    sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
-    
-    #Modelos
-    intercanbiable <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
-    #AR1            <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "AR-M", Mv = 1)
-    unstructured   <- gee(yij ~ treat + tiempo + treat * tiempo, id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
-    intercepto     <- lmer(yij ~ treat + tiempo + treat * tiempo + (1|ID), data = sample_long, REML = FALSE)
-    pen_intercepto <- lmer(yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
-    
-    #Completando las matrices con la decisión de la hipótesis
-    Gee_intercanbiable[(i/k)-(sample_min),j] <-if(pnorm(as.matrix(intercanbiable$coefficients)[4,]/sqrt(intercanbiable$robust.variance[4,4]), 0, 1)        < 0.05) 1 else 0
-    #Gee_AR1[(i/k)-(sample_min),j]            <-if(pnorm(as.matrix(AR1$coefficients)[4,]/sqrt(AR1$robust.variance[4,4]), 0, 1)                              < 0.05) 1 else 0
-    Gee_unstructured[(i/k)-(sample_min),j]   <-if(pnorm(as.matrix(unstructured$coefficients)[4,]/sqrt(unstructured$robust.variance[4,4]), 0, 1)            < 0.05) 1 else 0
-    Mixto_intercepto[(i/k)-(sample_min),j]   <-if(pt(as.matrix(intercepto@beta)[4,]/sqrt(intercepto@vcov_beta[4,4]), df = as.matrix(intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    Mixto_pen_inter[(i/k)-(sample_min),j]    <-if(pt(as.matrix(pen_intercepto@beta)[4,]/sqrt(pen_intercepto@vcov_beta[4,4]), df = as.matrix(pen_intercepto@Gp)[2,]-1)     < 0.05) 1 else 0
-    
-    
-    
-    
-  }}
+    Base <- mutate(Base,Gee_inter)
+    Base <- mutate(Base,Gee_AR)
+    Base <- mutate(Base,Gee_unst)
+    Base <- mutate(Base,Mixto_inte)
+    Base <- mutate(Base,Mixto_pen_)
+  }
   
-  #Base de datos
-  Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
-  #Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
-  Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
-  Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
-  Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
-  
-  missing_treat__1 <- as.matrix(apply(X = missing_treat_1,    MARGIN = 1, FUN = mean))
-  missing_treat__2 <- as.matrix(apply(X = missing_treat_2,    MARGIN = 1, FUN = mean))
-  
-  Base <- as.data.frame(cbind(ID = (sample_min:(sample_max-1)*k)))
-  Base <- mutate(Base,Gee_inter)
-  #Base <- mutate(Base,Gee_AR)
-  Base <- mutate(Base,Gee_unst)
-  Base <- mutate(Base,Mixto_inte)
-  Base <- mutate(Base,missing_treat__1)
-  Base <- mutate(Base,missing_treat__2)
+  # Cálculos para 2 tratamientos
+  if(treat == 3){    
+    
+    # Bucle para 3 tratamientos
+    for (i in 1:length(n)) {for(j in 1:repeticiones){
+      
+      sample_treat_1 <- base[sample(x = 1:(nrow(base)/3),                    size = n[[i]], replace = FALSE),]
+      sample_treat_2 <- base[sample(x = (nrow(base)/3+1):((nrow(base)/3)*2), size = n[[i]], replace = FALSE),]
+      sample_treat_3 <- base[sample(x = ((nrow(base)/3)*2+1):nrow(base),     size = n[[i]], replace = FALSE),]
+      
+      sample <- bind_rows(sample_treat_1,sample_treat_2,sample_treat_3)
+      
+      sample_long <- reshape(data = sample, varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+      sample_long <- arrange(sample_long,ID,tiempo)
+      sample_long$treat <- as.factor(sample_long$treat)
+      sample_long$tiempo <- as.numeric(sample_long$tiempo)
+      sample_long$tiempo <- (sample_long$tiempo-1)/(t-1) # acá se estandariza el tiempo (de cero a uno) y garantiza que entre una medición y otra "t" tenga la misma distancia.
+      
+      #Modelos
+      intercanbiable <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,     id = ID,    data = sample_long, family = gaussian, corstr = "exchangeable")
+      AR1            <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,     id = ID,    data = sample_long, family = gaussian, corstr = "ar1")
+      unstructured   <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,     id = ID,    data = sample_long, family = gaussian, corstr = "unstructured")
+      intercepto     <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo + (1     |ID),   data = sample_long, REML = FALSE)
+      pen_intercepto <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),   data = sample_long, REML = FALSE)
+      
+      #Completando las matrices con la decisión de la hipótesis
+      
+      Gee_intercanbiable   [i,j]  <- if((1-(pnorm( abs( coef(summary(intercanbiable)) [5,1]  /   coef(summary(intercanbiable))[5,2] ))))*2 < 0.05) 1 else 0
+      Gee_AR1              [i,j]  <- if((1-(pnorm( abs( coef(summary(AR1))            [5,1]  /   coef(summary(AR1))           [5,2] ))))*2 < 0.05) 1 else 0
+      Gee_unstructured     [i,j]  <- if((1-(pnorm( abs( coef(summary(unstructured))   [5,1]  /   coef(summary(unstructured))  [5,2] ))))*2 < 0.05) 1 else 0
+      Mixto_intercepto     [i,j]  <- if(coef(summary(intercepto))    [5,5]                                                                 < 0.05) 1 else 0
+      Mixto_pen_inter      [i,j]  <- if(coef(summary(pen_intercepto))[5,5]                                                                 < 0.05) 1 else 0
+      
+      Gee_intercanbiable_3 [i,j]  <- if((1-(pnorm( abs( coef(summary(intercanbiable)) [6,1]  /   coef(summary(intercanbiable))[6,2] ))))*2 < 0.05) 1 else 0
+      Gee_AR1_3            [i,j]  <- if((1-(pnorm( abs( coef(summary(AR1))            [6,1]  /   coef(summary(AR1))           [6,2] ))))*2 < 0.05) 1 else 0
+      Gee_unstructured_3   [i,j]  <- if((1-(pnorm( abs( coef(summary(unstructured))   [6,1]  /   coef(summary(unstructured))  [6,2] ))))*2 < 0.05) 1 else 0
+      Mixto_intercepto_3   [i,j]  <- if(coef(summary(intercepto))    [6,5]                                                                 < 0.05) 1 else 0
+      Mixto_pen_inter_3    [i,j]  <- if(coef(summary(pen_intercepto))[6,5]                                                                 < 0.05) 1 else 0
+      
+      print("3")
+      
+    }}
+    
+    #Base de datos para 3 tratamientos
+    Gee_inter     <- as.matrix(apply(X = Gee_intercanbiable,   MARGIN = 1, FUN = mean))
+    Gee_AR        <- as.matrix(apply(X = Gee_AR1,              MARGIN = 1, FUN = mean))
+    Gee_unst      <- as.matrix(apply(X = Gee_unstructured,     MARGIN = 1, FUN = mean))
+    Mixto_inte    <- as.matrix(apply(X = Mixto_intercepto,     MARGIN = 1, FUN = mean))
+    Mixto_pen_    <- as.matrix(apply(X = Mixto_pen_inter,      MARGIN = 1, FUN = mean))
+    
+    Gee_inter_3   <- as.matrix(apply(X = Gee_intercanbiable_3, MARGIN = 1, FUN = mean))
+    Gee_AR_3      <- as.matrix(apply(X = Gee_AR1_3,            MARGIN = 1, FUN = mean))
+    Gee_unst_3    <- as.matrix(apply(X = Gee_unstructured_3,   MARGIN = 1, FUN = mean))
+    Mixto_inte_3  <- as.matrix(apply(X = Mixto_intercepto_3,   MARGIN = 1, FUN = mean))
+    Mixto_pen_3   <- as.matrix(apply(X = Mixto_pen_inter_3,    MARGIN = 1, FUN = mean))
+    
+    Base <- as.data.frame(cbind(ID = n))
+    
+    Base <- mutate(Base,Gee_inter)
+    Base <- mutate(Base,Gee_AR)
+    Base <- mutate(Base,Gee_unst)
+    Base <- mutate(Base,Mixto_inte)
+    Base <- mutate(Base,Mixto_pen_)
+    
+    Base <- mutate(Base,Gee_inter_3)
+    Base <- mutate(Base,Gee_AR_3)
+    Base <- mutate(Base,Gee_unst_3)
+    Base <- mutate(Base,Mixto_inte_3)
+    Base <- mutate(Base,Mixto_pen_3)
+    
+  } else {"Favor indicar 2 o 3  tratamientos en 'treat'"}
   
   
+  # Capturando la hora de término del la función
+  Fin <- DescTools::Now()
+  
+  # Calculando la duración
+  Duración <- Fin - Inicio; print(Duración)
+  
+  # Retornando los resultados
   return(Base = Base)
   
 }
