@@ -168,7 +168,7 @@ Comp_modelos <- function(base, treat, n, repeticiones, t) {
       Mixto_intercepto   [i,j]  <- if(coef(summary(intercepto))    [4,5]                                                            < 0.05) 1 else 0
       Mixto_pen_inter    [i,j]  <- if(coef(summary(pen_intercepto))[4,5]                                                            < 0.05) 1 else 0
                          
-      print("2")
+      print(c(n[[i]],j))
       
     }}
     
@@ -227,7 +227,7 @@ Comp_modelos <- function(base, treat, n, repeticiones, t) {
       Mixto_intercepto_3   [i,j]  <- if(coef(summary(intercepto))    [6,5]                                                                 < 0.05) 1 else 0
       Mixto_pen_inter_3    [i,j]  <- if(coef(summary(pen_intercepto))[6,5]                                                                 < 0.05) 1 else 0
       
-      print("3")
+      print(c(n[[i]],j))
       
     }}
     
