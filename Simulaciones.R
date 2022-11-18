@@ -317,12 +317,6 @@ Comp_modelos_par <- function(base, treat, n, repeticiones, t) {
         sample_treat_1 <- base[sample(x = 1:(nrow(base)/2),            size = n[[i]], replace = FALSE),]
         sample_treat_2 <- base[sample(x = (nrow(base)/2+1):nrow(base), size = n[[i]], replace = FALSE),]
         
-        
-        
-        
-        
-        
-        
         sample         <- dplyr::bind_rows(sample_treat_1,sample_treat_2)
         
         # Pasando a formato largo la muestra obtenida
@@ -505,7 +499,7 @@ Comp_modelos_par <- function(base, treat, n, repeticiones, t) {
   
 }    
     
-Comp_missing_2treat_4med <- function(base, n, repeticiones, t, m) {
+Comp_modelos_missing <- function(base, n, repeticiones, t, q, mi, mc, ms) {
   
   # Capturando la hora de inicio del la función
   Inicio <- DescTools::Now()
@@ -543,67 +537,173 @@ Comp_missing_2treat_4med <- function(base, n, repeticiones, t, m) {
     # Eliminando las observaciones para el tratamiento 1
     t1 <- as.data.frame(cbind(ID = sample_treat_1$ID, t1 = sample_treat_1$V1) )
     
-    t2 <- as.data.frame(cbind(ID = sample_treat_1$ID, t2 = sample_treat_1$V2, umbral = cut(x = sample_treat_1$V2, breaks = c(-Inf, quantile(x = sample_treat_1$V2, probs = 0.2), quantile(x = sample_treat_1$V2, probs = 0.8),Inf))))
-    t2_borrar <- sampling::strata(data = t2, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(t2)* m)*0.3), ceiling((nrow(t2)* m)*0.4), ceiling((nrow(t2)* m)*0.3) ))
-    t2_borrar <- sampling::getdata(t2,t2_borrar)
-    t2 <- t2 %>% filter(!ID %in% c(t2_borrar$ID))
-  
-    t3 <- as.data.frame(cbind(ID = sample_treat_1$ID, t3 = sample_treat_1$V3, umbral = cut(x = sample_treat_1$V3, breaks = c(-Inf, quantile(x = sample_treat_1$V3, probs = 0.2), quantile(x = sample_treat_1$V3, probs = 0.8),Inf))))
-    t3 <- right_join (x = t3, y = t2, by = "ID")[,1:3]
-    t3_borrar <- sampling::strata(data = t3, method = c("srswor"), stratanames = c("umbral.x"), size = c( ceiling((nrow(t3)* m)* 0.3), ceiling((nrow(t3)* m)* 0.4), ceiling((nrow(t3)* m)* 0.3)))
-    t3_borrar <- sampling::getdata(t3,t3_borrar)
-    t3 <- t3 %>% filter(!ID %in% c(t3_borrar$ID))
+    t2 <- as.data.frame(cbind(ID = sample_treat_1$ID, t2 = sample_treat_1$V2, umbral = cut(x = sample_treat_1$V2, breaks = c(-Inf, quantile(x = sample_treat_1$V2, probs = q), quantile(x = sample_treat_1$V2, probs = (1-q)),Inf))))
+    n1 <- ceiling((nrow(t2)*q)*mi); n2 <- ceiling((nrow(t2)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t2)*q)*ms)
+    t2_borrar_1 <- try((t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t2_borrar_2 <- try((t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t2_borrar_3 <- try((t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% t2_borrar_1)
+    t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% t2_borrar_2)
+    t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% t2_borrar_3)
     
-    t4 <- as.data.frame(cbind(ID = sample_treat_1$ID, t4 = sample_treat_1$V4, umbral = cut(x = sample_treat_1$V4, breaks = c(-Inf, quantile(x = sample_treat_1$V4, probs = 0.2), quantile(x = sample_treat_1$V4, probs = 0.8),Inf))))
-    t4 <- right_join (x = t4, y = t3, by = "ID")[,1:3]
-    t4_borrar <- sampling::strata(data = t4, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(t4)* m)* 0.3), ceiling((nrow(t4)* m)* 0.4), ceiling((nrow(t4)* m)* 0.3)))
-    t4_borrar <- sampling::getdata(t3,t4_borrar)
-    t4 <- t4 %>% filter(!ID %in% c(t4_borrar$ID))
+    t3 <- as.data.frame(cbind(ID = sample_treat_1$ID, t3 = sample_treat_1$V3, umbral = cut(x = sample_treat_1$V3, breaks = c(-Inf, quantile(x = sample_treat_1$V3, probs = q), quantile(x = sample_treat_1$V3, probs = (1-q)),Inf))))
+    t3 <- t3 %>% filter(ID %in% t2$ID)
+    n1 <- ceiling((nrow(t3)*q)*mi); n2 <- ceiling((nrow(t3)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t3)*q)*ms)
+    t3_borrar_1 <- try((t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t3_borrar_2 <- try((t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t3_borrar_3 <- try((t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% t3_borrar_1)
+    t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% t3_borrar_2)
+    t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% t3_borrar_3)
     
+    t4 <- as.data.frame(cbind(ID = sample_treat_1$ID, t4 = sample_treat_1$V4, umbral = cut(x = sample_treat_1$V4, breaks = c(-Inf, quantile(x = sample_treat_1$V4, probs = q), quantile(x = sample_treat_1$V4, probs = (1-q)),Inf))))
+    t4 <- t4 %>% filter(ID %in% t3$ID)
+    n1 <- ceiling((nrow(t4)*q)*mi); n2 <- ceiling((nrow(t4)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t4)*q)*ms)
+    t4_borrar_1 <- try((t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t4_borrar_2 <- try((t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t4_borrar_3 <- try((t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% t4_borrar_1)
+    t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% t4_borrar_2)
+    t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% t4_borrar_3)
+    
+    t5 <- as.data.frame(cbind(ID = sample_treat_1$ID, t5 = sample_treat_1$V5, umbral = cut(x = sample_treat_1$V5, breaks = c(-Inf, quantile(x = sample_treat_1$V5, probs = q), quantile(x = sample_treat_1$V5, probs = (1-q)),Inf))))
+    t5 <- t5 %>% filter(ID %in% t4$ID)
+    n1 <- ceiling((nrow(t5)*q)*mi); n2 <- ceiling((nrow(t5)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t5)*q)*ms)
+    t5_borrar_1 <- try((t5 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t5_borrar_2 <- try((t5 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t5_borrar_3 <- try((t5 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% t5_borrar_1)
+    t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% t5_borrar_2)
+    t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% t5_borrar_3)
+    
+    t6 <- as.data.frame(cbind(ID = sample_treat_1$ID, t6 = sample_treat_1$V6, umbral = cut(x = sample_treat_1$V6, breaks = c(-Inf, quantile(x = sample_treat_1$V6, probs = q), quantile(x = sample_treat_1$V6, probs = (1-q)),Inf))))
+    t6 <- t6 %>% filter(ID %in% t5$ID)
+    n1 <- ceiling((nrow(t6)*q)*mi); n2 <- ceiling((nrow(t6)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t6)*q)*ms)
+    t6_borrar_1 <- try((t6 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t6_borrar_2 <- try((t6 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t6_borrar_3 <- try((t6 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% t6_borrar_1)
+    t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% t6_borrar_2)
+    t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% t6_borrar_3)
+    
+    t7 <- as.data.frame(cbind(ID = sample_treat_1$ID, t7 = sample_treat_1$V7, umbral = cut(x = sample_treat_1$V7, breaks = c(-Inf, quantile(x = sample_treat_1$V7, probs = q), quantile(x = sample_treat_1$V7, probs = (1-q)),Inf))))
+    t7 <- t7 %>% filter(ID %in% t6$ID)
+    n1 <- ceiling((nrow(t7)*q)*mi); n2 <- ceiling((nrow(t7)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t7)*q)*ms)
+    t7_borrar_1 <- try((t7 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t7_borrar_2 <- try((t7 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t7_borrar_3 <- try((t7 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% t7_borrar_1)
+    t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% t7_borrar_2)
+    t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% t7_borrar_3)
+    
+    t8 <- as.data.frame(cbind(ID = sample_treat_1$ID, t8 = sample_treat_1$V8, umbral = cut(x = sample_treat_1$V8, breaks = c(-Inf, quantile(x = sample_treat_1$V8, probs = q), quantile(x = sample_treat_1$V8, probs = (1-q)),Inf))))
+    t8 <- t8 %>% filter(ID %in% t7$ID)
+    n1 <- ceiling((nrow(t8)*q)*mi); n2 <- ceiling((nrow(t8)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t8)*q)*ms)
+    t8_borrar_1 <- try((t8 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t8_borrar_2 <- try((t8 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t8_borrar_3 <- try((t8 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% t8_borrar_1)
+    t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% t8_borrar_2)
+    t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% t8_borrar_3)
     
     sample_treat_1_perdidas <- full_join(x = t1,    y = t2, by = "ID")
     sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t3, by = "ID")
     sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t4, by = "ID")
+    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t5, by = "ID")
+    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t6, by = "ID")
+    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t7, by = "ID")
+    sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t8, by = "ID")
     sample_treat_1_perdidas <- mutate(sample_treat_1_perdidas, treat = rep(1, nrow(sample_treat_1)))
-    
-    sample_treat_1_perdidas <- sample_treat_1_perdidas[,-c(4,6,8)]
-    
     
     # Eliminando las observaciones para el tratamiento 2
     
     t1 <- as.data.frame(cbind(ID = sample_treat_2$ID, t1 = sample_treat_2$V1) )
     
-    t2 <- as.data.frame(cbind(ID = sample_treat_2$ID, t2 = sample_treat_2$V2, umbral = cut(x = sample_treat_2$V2, breaks = c(-Inf, quantile(x = sample_treat_2$V2, probs = 0.2), quantile(x = sample_treat_2$V2, probs = 0.8),Inf))))
-    t2_borrar <- sampling::strata(data = t2, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(t2)* m)*0.3), ceiling((nrow(t2)* m)*0.4), ceiling((nrow(t2)* m)*0.3) ))
-    t2_borrar <- sampling::getdata(t2,t2_borrar)
-    t2 <- t2 %>% filter(!ID %in% c(t2_borrar$ID))
+    t2 <- as.data.frame(cbind(ID = sample_treat_2$ID, t2 = sample_treat_2$V2, umbral = cut(x = sample_treat_2$V2, breaks = c(-Inf, quantile(x = sample_treat_2$V2, probs = q), quantile(x = sample_treat_2$V2, probs = (1-q)),Inf))))
+    n1 <- ceiling((nrow(t2)*q)*mi); n2 <- ceiling((nrow(t2)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t2)*q)*ms)
+    t2_borrar_1 <- try((t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t2_borrar_2 <- try((t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t2_borrar_3 <- try((t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% t2_borrar_1)
+    t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% t2_borrar_2)
+    t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% t2_borrar_3)
     
-    t3 <- as.data.frame(cbind(ID = sample_treat_2$ID, t3 = sample_treat_2$V3, umbral = cut(x = sample_treat_2$V3, breaks = c(-Inf, quantile(x = sample_treat_2$V3, probs = 0.2), quantile(x = sample_treat_2$V3, probs = 0.8),Inf))))
-    t3 <- right_join (x = t3, y = t2, by = "ID")[,1:3]
-    t3_borrar <- sampling::strata(data = t3, method = c("srswor"), stratanames = c("umbral.x"), size = c( ceiling((nrow(t3)* m)* 0.3), ceiling((nrow(t3)* m)* 0.4), ceiling((nrow(t3)* m)* 0.3)))
-    t3_borrar <- sampling::getdata(t3,t3_borrar)
-    t3 <- t3 %>% filter(!ID %in% c(t3_borrar$ID))
+    t3 <- as.data.frame(cbind(ID = sample_treat_2$ID, t3 = sample_treat_2$V3, umbral = cut(x = sample_treat_2$V3, breaks = c(-Inf, quantile(x = sample_treat_2$V3, probs = q), quantile(x = sample_treat_2$V3, probs = (1-q)),Inf))))
+    t3 <- t3 %>% filter(ID %in% t2$ID)
+    n1 <- ceiling((nrow(t3)*q)*mi); n2 <- ceiling((nrow(t3)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t3)*q)*ms)
+    t3_borrar_1 <- try((t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t3_borrar_2 <- try((t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t3_borrar_3 <- try((t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% t3_borrar_1)
+    t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% t3_borrar_2)
+    t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% t3_borrar_3)
     
-    t4 <- as.data.frame(cbind(ID = sample_treat_2$ID, t4 = sample_treat_2$V4, umbral = cut(x = sample_treat_2$V4, breaks = c(-Inf, quantile(x = sample_treat_2$V4, probs = 0.2), quantile(x = sample_treat_2$V4, probs = 0.8),Inf))))
-    t4 <- right_join (x = t4, y = t3, by = "ID")[,1:3]
-    t4_borrar <- sampling::strata(data = t4, method = c("srswor"), stratanames = c("umbral"), size = c( ceiling((nrow(t4)* m)* 0.3), ceiling((nrow(t4)* m)* 0.4), ceiling((nrow(t4)* m)* 0.3)))
-    t4_borrar <- sampling::getdata(t3,t4_borrar)
-    t4 <- t4 %>% filter(!ID %in% c(t4_borrar$ID))
+    t4 <- as.data.frame(cbind(ID = sample_treat_2$ID, t4 = sample_treat_2$V4, umbral = cut(x = sample_treat_2$V4, breaks = c(-Inf, quantile(x = sample_treat_2$V4, probs = q), quantile(x = sample_treat_2$V4, probs = (1-q)),Inf))))
+    t4 <- t4 %>% filter(ID %in% t3$ID)
+    n1 <- ceiling((nrow(t4)*q)*mi); n2 <- ceiling((nrow(t4)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t4)*q)*ms)
+    t4_borrar_1 <- try((t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t4_borrar_2 <- try((t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t4_borrar_3 <- try((t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% t4_borrar_1)
+    t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% t4_borrar_2)
+    t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% t4_borrar_3)
+    
+    t5 <- as.data.frame(cbind(ID = sample_treat_2$ID, t5 = sample_treat_2$V5, umbral = cut(x = sample_treat_2$V5, breaks = c(-Inf, quantile(x = sample_treat_2$V5, probs = q), quantile(x = sample_treat_2$V5, probs = (1-q)),Inf))))
+    t5 <- t5 %>% filter(ID %in% t4$ID)
+    n1 <- ceiling((nrow(t5)*q)*mi); n2 <- ceiling((nrow(t5)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t5)*q)*ms)
+    t5_borrar_1 <- try((t5 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t5_borrar_2 <- try((t5 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t5_borrar_3 <- try((t5 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% t5_borrar_1)
+    t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% t5_borrar_2)
+    t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% t5_borrar_3)
+    
+    t6 <- as.data.frame(cbind(ID = sample_treat_2$ID, t6 = sample_treat_2$V6, umbral = cut(x = sample_treat_2$V6, breaks = c(-Inf, quantile(x = sample_treat_2$V6, probs = q), quantile(x = sample_treat_2$V6, probs = (1-q)),Inf))))
+    t6 <- t6 %>% filter(ID %in% t5$ID)
+    n1 <- ceiling((nrow(t6)*q)*mi); n2 <- ceiling((nrow(t6)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t6)*q)*ms)
+    t6_borrar_1 <- try((t6 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t6_borrar_2 <- try((t6 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t6_borrar_3 <- try((t6 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% t6_borrar_1)
+    t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% t6_borrar_2)
+    t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% t6_borrar_3)
+    
+    t7 <- as.data.frame(cbind(ID = sample_treat_2$ID, t7 = sample_treat_2$V7, umbral = cut(x = sample_treat_2$V7, breaks = c(-Inf, quantile(x = sample_treat_2$V7, probs = q), quantile(x = sample_treat_2$V7, probs = (1-q)),Inf))))
+    t7 <- t7 %>% filter(ID %in% t6$ID)
+    n1 <- ceiling((nrow(t7)*q)*mi); n2 <- ceiling((nrow(t7)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t7)*q)*ms)
+    t7_borrar_1 <- try((t7 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t7_borrar_2 <- try((t7 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t7_borrar_3 <- try((t7 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% t7_borrar_1)
+    t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% t7_borrar_2)
+    t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% t7_borrar_3)
+    
+    t8 <- as.data.frame(cbind(ID = sample_treat_2$ID, t8 = sample_treat_2$V8, umbral = cut(x = sample_treat_2$V8, breaks = c(-Inf, quantile(x = sample_treat_2$V8, probs = q), quantile(x = sample_treat_2$V8, probs = (1-q)),Inf))))
+    t8 <- t8 %>% filter(ID %in% t7$ID)
+    n1 <- ceiling((nrow(t8)*q)*mi); n2 <- ceiling((nrow(t8)*(1-(q*2)))*mc); n3 <- ceiling((nrow(t8)*q)*ms)
+    t8_borrar_1 <- try((t8 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1], silent=TRUE)
+    t8_borrar_2 <- try((t8 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1], silent=TRUE)
+    t8_borrar_3 <- try((t8 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1], silent=TRUE)
+    t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% t8_borrar_1)
+    t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% t8_borrar_2)
+    t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% t8_borrar_3)
     
     sample_treat_2_perdidas <- full_join(x = t1,    y = t2, by = "ID")
     sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t3, by = "ID")
     sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t4, by = "ID")
+    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t5, by = "ID")
+    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t6, by = "ID")
+    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t7, by = "ID")
+    sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t8, by = "ID")
     sample_treat_2_perdidas <- mutate(sample_treat_2_perdidas, treat = rep(2, nrow(sample_treat_2_perdidas)))
     
-    sample_treat_2_perdidas <- sample_treat_2_perdidas[,-c(4,6,8)]  
-    
     # Muestra de ambos tratamiento con perdidas
-    
     sample <- bind_rows(sample_treat_1_perdidas,sample_treat_2_perdidas)
     
     sample_long <- reshape(data = sample,varying = 2:(t+1), v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
     sample_long <- arrange(sample_long,ID,tiempo)
     sample_long$tiempo <- as.numeric(sample_long$tiempo)
+    sample_long$treat <- as.factor(sample_long$treat)
     sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
     
     #Modelos
@@ -648,4 +748,4 @@ Comp_missing_2treat_4med <- function(base, n, repeticiones, t, m) {
   # Retornando los resultados
   return(Base = Base)
   
-}    
+} 
