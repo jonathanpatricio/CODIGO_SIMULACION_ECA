@@ -930,23 +930,4 @@
     # Retornando los resultados
     return(Base = Base)
   }
-                                
-  ##Escenario_1
-  población <- Pob_ECA(n = 1000000, 
-                       t = 4, 
-                       b0 = 44.9, 
-                       b1 = 0.11, 
-                       b2 = -2.30, 
-                       b3 = 0, 
-                       b4 = -2.30, 
-                       b5 = 0, 
-                       var_v0i = 102.01, 
-                       var_v1i = 0.1089, 
-                       cov_v0iv1i = -1.13322, 
-                       var_eij = 22.09)
   
-  base <- población$Treat_2$yij_2
-  #Escenario_1 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
-  Escenario_1_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
-  write.table(Escenario_1, "Escenario_1.txt")
-  write.table(Escenario_1_miss, "Escenario_1_miss.txt")
