@@ -1,5 +1,4 @@
-{
-  Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, var_eij) {
+Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, var_eij) {
     # Semilla para fijar los números aleatorios
     set.seed(16)
     
@@ -104,7 +103,7 @@
     return(list(Treat_2 = resul_2_treat, Treat_3 = resul_3_treat ))
     
   }
-
+  
   Comp_modelos_missing <- function(base, treat, n, repeticiones, t, q, mi, mc, ms) {
     
     # Capturando la hora de inicio del la función
@@ -931,8 +930,8 @@
     # Retornando los resultados
     return(Base = Base)
   } 
-}# Funciones necesarias para la simulación
-{#Simulaciones para dos (2) brazos de tratamiento
+# Funciones necesarias para la simulación
+#Simulaciones para dos (2) brazos de tratamiento
   ##Escenario_1
   población <- Pob_ECA(n = 1000000, 
                        t = 4, 
@@ -1304,8 +1303,8 @@
   write.table(Escenario_18, "Escenario_18.txt")
   write.table(Escenario_18_miss, "Escenario_18_miss.txt")
   
-}#Simulaciones para dos (2) brazos de tratamiento
-{#Simulaciones para tres (3) brazos de tratamiento
+#Simulaciones para dos (2) brazos de tratamiento
+#Simulaciones para tres (3) brazos de tratamiento
   ##Escenario_19
   población <- Pob_ECA(n = 1000000, 
                        t = 4, 
@@ -1676,5 +1675,4 @@
   Escenario_36_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_36, "Escenario_36.txt")
   write.table(Escenario_36_miss, "Escenario_36_miss.txt")
-  
-}#Simulaciones para tres (3) brazos de tratamiento
+
