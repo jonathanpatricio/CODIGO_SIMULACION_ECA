@@ -1,3 +1,4 @@
+{
   Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, var_eij) {
     # Semilla para fijar los números aleatorios
     set.seed(16)
@@ -103,7 +104,230 @@
     return(list(Treat_2 = resul_2_treat, Treat_3 = resul_3_treat ))
     
   }
-
+  Comp_modelos_par <- function(base, treat, n, repeticiones, t) {
+    
+    # Capturando la hora de inicio del la función
+    Inicio <- DescTools::Now()
+    
+    # Librerías que utiliza la función
+    library(dplyr)
+    library(lmerTest)
+    library(lme4)
+    library(geepack)
+    library(parallel)
+    library(foreach)
+    
+    # Matrices que guardarán los resultados de las hipótesis planteadas para 2 y 3 tratamientos
+    Gee_intercanbiable    <- matrix(0,length(n),repeticiones)
+    Gee_AR1               <- matrix(0,length(n),repeticiones)
+    Gee_unstructured      <- matrix(0,length(n),repeticiones) 
+    Mixto_intercepto      <- matrix(0,length(n),repeticiones)
+    Mixto_pen_inter       <- matrix(0,length(n),repeticiones)
+    
+    Gee_intercanbiable_3  <- matrix(0,length(n),repeticiones)
+    Gee_AR1_3             <- matrix(0,length(n),repeticiones)
+    Gee_unstructured_3    <- matrix(0,length(n),repeticiones) 
+    Mixto_intercepto_3    <- matrix(0,length(n),repeticiones)
+    Mixto_pen_inter_3     <- matrix(0,length(n),repeticiones)
+    
+    # Ajuntando los parámetros para utilizar %dopar%
+    doParallel::registerDoParallel( cl = parallel::makeCluster( parallel::detectCores() - 2, type = "PSOCK" ))
+    
+    # Cálculos para 2 tratamientos
+    if(treat == 2){ 
+      
+      # Bucle para 2 tratamientos
+      
+      for (i in 1:length(n)) {
+        i_result <- foreach (j = 1:repeticiones) %dopar%  {
+          
+          # Semilla para fijar los resultados
+          set.seed(i * j)
+          
+          # Obteniendo la muestra
+          sample_treat_1 <- base[sample(x = 1:(nrow(base)/2),            size = n[[i]], replace = FALSE),]
+          sample_treat_2 <- base[sample(x = (nrow(base)/2+1):nrow(base), size = n[[i]], replace = FALSE),]
+          sample         <- dplyr::bind_rows(sample_treat_1,sample_treat_2)
+          
+          # Pasando a formato largo la muestra obtenida
+          sample_long <- reshape(data = sample, varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+          sample_long <- dplyr::arrange(sample_long,ID,tiempo)
+          sample_long$treat <- as.factor(sample_long$treat)
+          sample_long$tiempo <- as.numeric(sample_long$tiempo)
+          sample_long$tiempo <- (sample_long$tiempo-1)/(t-1) # acá se estandariza el tiempo (de cero a uno) y garantiza que entre una medición y otra "t" tenga la misma distancia.
+          
+          #Ajustando los modelos
+          intercanbiable <- geepack::geeglm(formula = yij ~ treat + tiempo + treat * tiempo,       id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
+          AR1            <- geepack::geeglm(formula = yij ~ treat + tiempo + treat * tiempo,       id = ID, data = sample_long, family = gaussian, corstr = "ar1")
+          unstructured   <- geepack::geeglm(formula = yij ~ treat + tiempo + treat * tiempo,       id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
+          intercepto     <- lmerTest::lmer     (formula = yij ~ treat + tiempo + treat * tiempo +  (1     |ID), data = sample_long, REML = FALSE)
+          pen_intercepto <- lmerTest::lmer     (formula = yij ~ treat + tiempo + treat * tiempo +  (tiempo|ID), data = sample_long, REML = FALSE)
+          
+          #Guardando la decisión de la hipótesis planteada  
+          gee_intercanbiable <- if((1-(pnorm( abs(coef(summary(intercanbiable))[4,1] / coef(summary(intercanbiable))[4,2] ))))*2 < 0.05) 1 else 0
+          gee_AR1            <- if((1-(pnorm( abs(coef(summary(AR1))[4,1]            / coef(summary(AR1))[4,2]            ))))*2 < 0.05) 1 else 0
+          gee_unstructured   <- if((1-(pnorm( abs(coef(summary(unstructured))[4,1]   / coef(summary(unstructured))[4,2]   ))))*2 < 0.05) 1 else 0
+          mixto_intercepto   <- if(coef(summary(intercepto))    [4,5]                                                            < 0.05) 1 else 0
+          mixto_pen_inter    <- if(coef(summary(pen_intercepto))[4,5]                                                            < 0.05) 1 else 0
+          
+          #Resultado que se guardará en i_result para cada i
+          r <- list(
+            j = j,
+            gee_intercanbiable = as.integer(gee_intercanbiable),
+            gee_AR1 = as.integer(gee_AR1),
+            gee_unstructured = as.integer(gee_unstructured),
+            mixto_intercepto = as.integer(mixto_intercepto),
+            mixto_pen_inter = as.integer(mixto_pen_inter)
+          )
+          r
+        }
+        
+        #Completando las matrices con la decisión de la hipótesis 
+        for(r in i_result) {
+          j <- r$j
+          Gee_intercanbiable [i,j] <- r$gee_intercanbiable
+          Gee_AR1            [i,j] <- r$gee_AR1
+          Gee_unstructured   [i,j] <- r$gee_unstructured
+          Mixto_intercepto   [i,j] <- r$mixto_intercepto
+          Mixto_pen_inter    [i,j] <- r$mixto_pen_inter
+        }
+        print(n[[i]])
+      }
+      
+      #Base de datos para 2 tratamientos
+      Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+      Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
+      Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
+      Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
+      Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
+      
+      Base <- as.data.frame(cbind(n = n))
+      
+      Base <- mutate(Base,Gee_inter)
+      Base <- mutate(Base,Gee_AR)
+      Base <- mutate(Base,Gee_unst)
+      Base <- mutate(Base,Mixto_inte)
+      Base <- mutate(Base,Mixto_pen_)
+    }
+    
+    # Cálculos para 3 tratamientos
+    if(treat == 3){ 
+      
+      # Bucle para 3 tratamientos
+      
+      for (i in 1:length(n)) {
+        i_result <- foreach (j = 1:repeticiones) %dopar%  {
+          
+          # Semilla para fijar los resultados
+          set.seed(i * j)
+          
+          # Obteniendo la muestra
+          sample_treat_1 <- base[sample(x = 1:(nrow(base)/3),                    size = n[[i]], replace = FALSE),]
+          sample_treat_2 <- base[sample(x = (nrow(base)/3+1):((nrow(base)/3)*2), size = n[[i]], replace = FALSE),]
+          sample_treat_3 <- base[sample(x = ((nrow(base)/3)*2+1):nrow(base),     size = n[[i]], replace = FALSE),]
+          sample         <- dplyr::bind_rows(sample_treat_1,sample_treat_2,sample_treat_3)
+          
+          
+          # Pasando a formato largo la muestra obtenida
+          sample_long <- reshape(data = sample, varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+          sample_long <- dplyr::arrange(sample_long,ID,tiempo)
+          sample_long$treat <- as.factor(sample_long$treat)
+          sample_long$tiempo <- as.numeric(sample_long$tiempo)
+          sample_long$tiempo <- (sample_long$tiempo-1)/(t-1) # acá se estandariza el tiempo (de cero a uno) y garantiza que entre una medición y otra "t" tenga la misma distancia.
+          
+          #Ajustando los modelos
+          intercanbiable <- geepack::geeglm(formula = yij ~ treat + tiempo + treat * tiempo,       id = ID, data = sample_long, family = gaussian, corstr = "exchangeable")
+          AR1            <- geepack::geeglm(formula = yij ~ treat + tiempo + treat * tiempo,       id = ID, data = sample_long, family = gaussian, corstr = "ar1")
+          unstructured   <- geepack::geeglm(formula = yij ~ treat + tiempo + treat * tiempo,       id = ID, data = sample_long, family = gaussian, corstr = "unstructured")
+          intercepto     <- lmerTest::lmer     (formula = yij ~ treat + tiempo + treat * tiempo +  (1     |ID), data = sample_long, REML = FALSE)
+          pen_intercepto <- lmerTest::lmer     (formula = yij ~ treat + tiempo + treat * tiempo +  (tiempo|ID), data = sample_long, REML = FALSE)
+          
+          #Guardando la decisión de la hipótesis planteada  
+          gee_intercanbiable <- if((1-(pnorm( abs(coef(summary(intercanbiable))[5,1] / coef(summary(intercanbiable))[5,2] ))))*2 < 0.05) 1 else 0
+          gee_AR1            <- if((1-(pnorm( abs(coef(summary(AR1))           [5,1] / coef(summary(AR1))           [5,2] ))))*2 < 0.05) 1 else 0
+          gee_unstructured   <- if((1-(pnorm( abs(coef(summary(unstructured))  [5,1] / coef(summary(unstructured))  [5,2] ))))*2 < 0.05) 1 else 0
+          mixto_intercepto   <- if(coef(summary(intercepto))    [5,5]                                                            < 0.05) 1 else 0
+          mixto_pen_inter    <- if(coef(summary(pen_intercepto))[5,5]                                                            < 0.05) 1 else 0
+          
+          gee_intercanbiable_3 <- if((1-(pnorm( abs(coef(summary(intercanbiable))[6,1] / coef(summary(intercanbiable))[6,2] ))))*2 < 0.05) 1 else 0
+          gee_AR1_3            <- if((1-(pnorm( abs(coef(summary(AR1))           [6,1] / coef(summary(AR1))           [6,2] ))))*2 < 0.05) 1 else 0
+          gee_unstructured_3   <- if((1-(pnorm( abs(coef(summary(unstructured))  [6,1]   / coef(summary(unstructured))[6,2] ))))*2 < 0.05) 1 else 0
+          mixto_intercepto_3   <- if(coef(summary(intercepto))    [6,5]                                                            < 0.05) 1 else 0
+          mixto_pen_inter_3    <- if(coef(summary(pen_intercepto))[6,5]                                                            < 0.05) 1 else 0
+          
+          #Resultado que se guardará en i_result para cada i
+          r <- list(
+            j = j,
+            gee_intercanbiable =  as.integer(gee_intercanbiable),
+            gee_AR1            =  as.integer(gee_AR1),
+            gee_unstructured   =  as.integer(gee_unstructured),
+            mixto_intercepto   =  as.integer(mixto_intercepto),
+            mixto_pen_inter    =  as.integer(mixto_pen_inter),
+            gee_intercanbiable_3  =  as.integer(gee_intercanbiable_3),
+            gee_AR1_3             =  as.integer(gee_AR1_3),
+            gee_unstructured_3    =  as.integer(gee_unstructured_3),
+            mixto_intercepto_3    =  as.integer(mixto_intercepto_3),
+            mixto_pen_inter_3     =  as.integer(mixto_pen_inter_3)
+          )
+          r
+        }
+        
+        #Completando las matrices con la decisión de la hipótesis 
+        for(r in i_result) {
+          j <- r$j
+          Gee_intercanbiable[i,j] <- r$gee_intercanbiable
+          Gee_AR1[i,j] <- r$gee_AR1
+          Gee_unstructured[i,j] <- r$gee_unstructured
+          Mixto_intercepto[i,j] <- r$mixto_intercepto
+          Mixto_pen_inter[i,j] <- r$mixto_pen_inter
+          Gee_intercanbiable_3[i,j] <- r$gee_intercanbiable_3
+          Gee_AR1_3[i,j] <- r$gee_AR1_3
+          Gee_unstructured_3[i,j] <- r$gee_unstructured_3 
+          Mixto_intercepto_3[i,j] <- r$mixto_intercepto_3
+          Mixto_pen_inter_3[i,j] <- r$mixto_pen_inter_3
+          
+        }
+        print(n[[i]])
+      }
+      
+      #Base de datos para 3 tratamientos
+      Gee_inter     <- as.matrix(apply(X = Gee_intercanbiable,   MARGIN = 1, FUN = mean))
+      Gee_AR        <- as.matrix(apply(X = Gee_AR1,              MARGIN = 1, FUN = mean))
+      Gee_unst      <- as.matrix(apply(X = Gee_unstructured,     MARGIN = 1, FUN = mean))
+      Mixto_inte    <- as.matrix(apply(X = Mixto_intercepto,     MARGIN = 1, FUN = mean))
+      Mixto_pen_    <- as.matrix(apply(X = Mixto_pen_inter,      MARGIN = 1, FUN = mean))
+      
+      Gee_inter_3   <- as.matrix(apply(X = Gee_intercanbiable_3, MARGIN = 1, FUN = mean))
+      Gee_AR_3      <- as.matrix(apply(X = Gee_AR1_3,            MARGIN = 1, FUN = mean))
+      Gee_unst_3    <- as.matrix(apply(X = Gee_unstructured_3,   MARGIN = 1, FUN = mean))
+      Mixto_inte_3  <- as.matrix(apply(X = Mixto_intercepto_3,   MARGIN = 1, FUN = mean))
+      Mixto_pen_3   <- as.matrix(apply(X = Mixto_pen_inter_3,    MARGIN = 1, FUN = mean))
+      
+      Base <- as.data.frame(cbind(ID = n))
+      
+      Base <- mutate(Base,Gee_inter)
+      Base <- mutate(Base,Gee_AR)
+      Base <- mutate(Base,Gee_unst)
+      Base <- mutate(Base,Mixto_inte)
+      Base <- mutate(Base,Mixto_pen_)
+      
+      Base <- mutate(Base,Gee_inter_3)
+      Base <- mutate(Base,Gee_AR_3)
+      Base <- mutate(Base,Gee_unst_3)
+      Base <- mutate(Base,Mixto_inte_3)
+      Base <- mutate(Base,Mixto_pen_3)
+    }
+    
+    # Capturando la hora de término del la función
+    Fin <- DescTools::Now()
+    
+    # Calculando la duración
+    Duración <- Fin - Inicio; print(Duración)
+    
+    # Retornando los resultados
+    return(Base = Base)
+    
+  }
   Comp_modelos_missing <- function(base, treat, n, repeticiones, t, q, mi, mc, ms) {
     
     # Capturando la hora de inicio del la función
@@ -929,5 +1153,751 @@
     
     # Retornando los resultados
     return(Base = Base)
-  }
+  } 
+}# Funciones necesarias para la simulación
+{#Simulaciones para dos (2) brazos de tratamiento
+  ##Escenario_1
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
   
+  base <- población$Treat_2$yij_2
+  Escenario_1 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_1_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_1, "Escenario_1.txt")
+  write.table(Escenario_1_miss, "Escenario_1_miss.txt")
+  
+  ##Escenario_2
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_2 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_2_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_2, "Escenario_2.txt")
+  write.table(Escenario_2_miss, "Escenario_2_miss.txt") 
+  
+  ##Escenario_3
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_3 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_3_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_3, "Escenario_3.txt")
+  write.table(Escenario_3_miss, "Escenario_3_miss.txt") 
+  
+  ##Escenario_4
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_4 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_4_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_4, "Escenario_4.txt")
+  write.table(Escenario_4_miss, "Escenario_4_miss.txt") 
+  
+  
+  ##Escenario_5
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_5 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_5_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_5, "Escenario_5.txt")
+  write.table(Escenario_5_miss, "Escenario_5_miss.txt") 
+  
+  
+  ##Escenario_6
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_6 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_6_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_6, "Escenario_6.txt")
+  write.table(Escenario_6_miss, "Escenario_6_miss.txt") 
+  
+  ##Escenario_7
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_7 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_7_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_7, "Escenario_7.txt")
+  write.table(Escenario_7_miss, "Escenario_7_miss.txt") 
+  
+  
+  ##Escenario_8
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_8 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_8_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_8, "Escenario_8.txt")
+  write.table(Escenario_8_miss, "Escenario_8_miss.txt") 
+  
+  
+  ##Escenario_9
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_9 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_9_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_9, "Escenario_9.txt")
+  write.table(Escenario_9_miss, "Escenario_9_miss.txt") 
+  
+  
+  ##Escenario_10
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_10 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_10_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_10, "Escenario_10.txt")
+  write.table(Escenario_10_miss, "Escenario_10_miss.txt") 
+  
+  ##Escenario_11
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_11 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_11_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_11, "Escenario_11.txt")
+  write.table(Escenario_11_miss, "Escenario_11_miss.txt") 
+  
+  ##Escenario_12
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_12 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_12_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_12, "Escenario_12.txt")
+  write.table(Escenario_12_miss, "Escenario_12_miss.txt") 
+  
+  
+  ##Escenario_13
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_13 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_13_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_13, "Escenario_13.txt")
+  write.table(Escenario_13_miss, "Escenario_13_miss.txt") 
+  
+  
+  ##Escenario_14
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_14 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_14_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_14, "Escenario_14.txt")
+  write.table(Escenario_14_miss, "Escenario_14_miss.txt")
+  
+  
+  ##Escenario_15
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_15 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_15_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_15, "Escenario_15.txt")
+  write.table(Escenario_15_miss, "Escenario_15_miss.txt")
+  
+  
+  ##Escenario_16
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_16 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_16_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_16, "Escenario_16.txt")
+  write.table(Escenario_16_miss, "Escenario_16_miss.txt") 
+  
+  
+  ##Escenario_17
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_17 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_17_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_17, "Escenario_17.txt")
+  write.table(Escenario_17_miss, "Escenario_17_miss.txt")
+  
+  
+  ###Escenario_18
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_2$yij_2
+  Escenario_18 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_18_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_18, "Escenario_18.txt")
+  write.table(Escenario_18_miss, "Escenario_18_miss.txt")
+  
+}#Simulaciones para dos (2) brazos de tratamiento
+{#Simulaciones para tres (3) brazos de tratamiento
+  ##Escenario_19
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_19 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_19_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_19, "Escenario_19.txt")
+  write.table(Escenario_19_miss, "Escenario_19_miss.txt")
+  
+  ##Escenario_20
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_20 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_20_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_20, "Escenario_20.txt")
+  write.table(Escenario_20_miss, "Escenario_20_miss.txt") 
+  
+  ##Escenario_21
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_21 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_21_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_21, "Escenario_21.txt")
+  write.table(Escenario_21_miss, "Escenario_21_miss.txt") 
+  
+  ##Escenario_22
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_22 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_22_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_22, "Escenario_22.txt")
+  write.table(Escenario_22_miss, "Escenario_22_miss.txt") 
+  
+  
+  ##Escenario_23
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_23 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_23_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_23, "Escenario_23.txt")
+  write.table(Escenario_23_miss, "Escenario_23_miss.txt") 
+  
+  
+  ##Escenario_24
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 102.01, 
+                       var_v1i = 0.1089, 
+                       cov_v0iv1i = -1.13322, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_24 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_24_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_24, "Escenario_24.txt")
+  write.table(Escenario_24_miss, "Escenario_24_miss.txt") 
+  
+  ##Escenario_25
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_25 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_25_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_25, "Escenario_25.txt")
+  write.table(Escenario_25_miss, "Escenario_25_miss.txt") 
+  
+  
+  ##Escenario_26
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_26 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_26_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_26, "Escenario_26.txt")
+  write.table(Escenario_26_miss, "Escenario_26_miss.txt") 
+  
+  
+  ##Escenario_27
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_27 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_27_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_27, "Escenario_27.txt")
+  write.table(Escenario_27_miss, "Escenario_27_miss.txt") 
+  
+  
+  ##Escenario_28
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_28 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_28_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_28, "Escenario_28.txt")
+  write.table(Escenario_28_miss, "Escenario_28_miss.txt") 
+  
+  ##Escenario_29
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_29 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_29_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_29, "Escenario_29.txt")
+  write.table(Escenario_29_miss, "Escenario_29_miss.txt") 
+  
+  ##Escenario_30
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 102.01, 
+                       var_v1i = 64, 
+                       cov_v0iv1i = -60.6, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_30 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_30_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_30, "Escenario_30.txt")
+  write.table(Escenario_30_miss, "Escenario_30_miss.txt") 
+  
+  
+  ##Escenario_31
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_31 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_31_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_31, "Escenario_31.txt")
+  write.table(Escenario_31_miss, "Escenario_31_miss.txt") 
+  
+  
+  ##Escenario_32
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_32 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_32_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_32, "Escenario_32.txt")
+  write.table(Escenario_32_miss, "Escenario_32_miss.txt")
+  
+  
+  ##Escenario_33
+  población <- Pob_ECA(n = 1000000, 
+                       t = 4, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_33 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
+  Escenario_33_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_33, "Escenario_33.txt")
+  write.table(Escenario_33_miss, "Escenario_33_miss.txt")
+  
+  
+  ##Escenario_34
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = 0, 
+                       b4 = -2.30, 
+                       b5 = 0, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_34 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_34_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_34, "Escenario_34.txt")
+  write.table(Escenario_34_miss, "Escenario_34_miss.txt") 
+  
+  
+  ##Escenario_35
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -0.5, 
+                       b4 = -2.30, 
+                       b5 = -0.5, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_35 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_35_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_35, "Escenario_35.txt")
+  write.table(Escenario_35_miss, "Escenario_35_miss.txt")
+  
+  
+  ##Escenario_36
+  población <- Pob_ECA(n = 1000000, 
+                       t = 8, 
+                       b0 = 44.9, 
+                       b1 = 0.11, 
+                       b2 = -2.30, 
+                       b3 = -2, 
+                       b4 = -2.30, 
+                       b5 = -2, 
+                       var_v0i = 36, 
+                       var_v1i = 100, 
+                       cov_v0iv1i = 45, 
+                       var_eij = 22.09)
+  
+  base <- población$Treat_3$yij_3
+  Escenario_36 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
+  Escenario_36_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  write.table(Escenario_36, "Escenario_36.txt")
+  write.table(Escenario_36_miss, "Escenario_36_miss.txt")
+  
+}#Simulaciones para tres (3) brazos de tratamiento
