@@ -104,6 +104,167 @@ Pob_ECA <- function(n, t, b0, b1, b2, b3, b4, b5, var_v0i, var_v1i, cov_v0iv1i, 
   
 }
 
+Comp_modelos     <- function(base, treat, n, repeticiones, t) {
+  
+  # Capturando la hora de inicio del la función
+  Inicio <- DescTools::Now()
+  
+  # Semilla para fijar los resultados
+  set.seed(16)
+  
+  # Librerías que utiliza la función
+  library(dplyr)
+  library(lmerTest)
+  library(lme4)
+  library(geepack)
+  
+  # Matrices que guardarán los resultados de las hipótesis planteadas para 2 y 3 tratamientos
+  Gee_intercanbiable    <- matrix(0,length(n),repeticiones)
+  Gee_AR1               <- matrix(0,length(n),repeticiones)
+  Gee_unstructured      <- matrix(0,length(n),repeticiones) 
+  Mixto_intercepto      <- matrix(0,length(n),repeticiones)
+  Mixto_pen_inter       <- matrix(0,length(n),repeticiones)
+  
+  Gee_intercanbiable_3  <- matrix(0,length(n),repeticiones)
+  Gee_AR1_3             <- matrix(0,length(n),repeticiones)
+  Gee_unstructured_3    <- matrix(0,length(n),repeticiones) 
+  Mixto_intercepto_3    <- matrix(0,length(n),repeticiones)
+  Mixto_pen_inter_3     <- matrix(0,length(n),repeticiones)
+  
+  # Cálculos para 2 tratamientos
+  if(treat == 2){ 
+    
+    # Bucle para 2 tratamientos
+    for (i in 1:length(n)) {for(j in 1:repeticiones){ 
+      
+      sample_treat_1 <- base[sample(x = 1:(nrow(base)/2),            size = n[[i]], replace = FALSE),]
+      sample_treat_2 <- base[sample(x = (nrow(base)/2+1):nrow(base), size = n[[i]], replace = FALSE),]
+      sample         <- bind_rows(sample_treat_1,sample_treat_2)
+      
+      sample_long <- reshape(data = sample, varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+      sample_long <- arrange(sample_long,ID,tiempo)
+      sample_long$treat <- as.factor(sample_long$treat)
+      sample_long$tiempo <- as.numeric(sample_long$tiempo)
+      sample_long$tiempo <- (sample_long$tiempo-1)/(t-1) # acá se estandariza el tiempo (de cero a uno) y garantiza que entre una medición y otra "t" tenga la misma distancia.
+      
+      #Modelos
+      intercanbiable <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,      id = ID, data =  sample_long, family = gaussian, corstr = "exchangeable")
+      AR1            <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,      id = ID, data =  sample_long, family = gaussian, corstr = "ar1")
+      unstructured   <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,      id = ID, data =  sample_long, family = gaussian, corstr = "unstructured")
+      intercepto     <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo +  (1     |ID), data = sample_long, REML = FALSE)
+      pen_intercepto <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo +  (tiempo|ID), data = sample_long, REML = FALSE)
+      
+      #Completando las matrices con la decisión de la hipótesis
+      
+      Gee_intercanbiable [i,j]  <- if((1-(pnorm( abs(coef(summary(intercanbiable))[4,1] / coef(summary(intercanbiable))[4,2] ))))*2 < 0.05) 1 else 0
+      Gee_AR1            [i,j]  <- if((1-(pnorm( abs(coef(summary(AR1))[4,1]            / coef(summary(AR1))[4,2]            ))))*2 < 0.05) 1 else 0
+      Gee_unstructured   [i,j]  <- if((1-(pnorm( abs(coef(summary(unstructured))[4,1]   / coef(summary(unstructured))[4,2]   ))))*2 < 0.05) 1 else 0
+      Mixto_intercepto   [i,j]  <- if(coef(summary(intercepto))    [4,5]                                                            < 0.05) 1 else 0
+      Mixto_pen_inter    [i,j]  <- if(coef(summary(pen_intercepto))[4,5]                                                            < 0.05) 1 else 0
+      
+      print(c(n[[i]],j))
+      
+    }}
+    
+    #Base de datos para 2 tratamientos
+    Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+    Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
+    Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
+    Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
+    Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
+    
+    Base <- as.data.frame(cbind(n = n))
+    
+    Base <- mutate(Base,Gee_inter)
+    Base <- mutate(Base,Gee_AR)
+    Base <- mutate(Base,Gee_unst)
+    Base <- mutate(Base,Mixto_inte)
+    Base <- mutate(Base,Mixto_pen_)
+  }
+  
+  # Cálculos para 2 tratamientos
+  if(treat == 3){    
+    
+    # Bucle para 3 tratamientos
+    for (i in 1:length(n)) {for(j in 1:repeticiones){
+      
+      sample_treat_1 <- base[sample(x = 1:(nrow(base)/3),                    size = n[[i]], replace = FALSE),]
+      sample_treat_2 <- base[sample(x = (nrow(base)/3+1):((nrow(base)/3)*2), size = n[[i]], replace = FALSE),]
+      sample_treat_3 <- base[sample(x = ((nrow(base)/3)*2+1):nrow(base),     size = n[[i]], replace = FALSE),]
+      
+      sample <- bind_rows(sample_treat_1,sample_treat_2,sample_treat_3)
+      
+      sample_long <- reshape(data = sample, varying = 1:t, v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+      sample_long <- arrange(sample_long,ID,tiempo)
+      sample_long$treat <- as.factor(sample_long$treat)
+      sample_long$tiempo <- as.numeric(sample_long$tiempo)
+      sample_long$tiempo <- (sample_long$tiempo-1)/(t-1) # acá se estandariza el tiempo (de cero a uno) y garantiza que entre una medición y otra "t" tenga la misma distancia.
+      
+      #Modelos
+      intercanbiable <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,     id = ID,    data = sample_long, family = gaussian, corstr = "exchangeable")
+      AR1            <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,     id = ID,    data = sample_long, family = gaussian, corstr = "ar1")
+      unstructured   <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,     id = ID,    data = sample_long, family = gaussian, corstr = "unstructured")
+      intercepto     <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo + (1     |ID),   data = sample_long, REML = FALSE)
+      pen_intercepto <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),   data = sample_long, REML = FALSE)
+      
+      #Completando las matrices con la decisión de la hipótesis
+      
+      Gee_intercanbiable   [i,j]  <- if((1-(pnorm( abs( coef(summary(intercanbiable)) [5,1]  /   coef(summary(intercanbiable))[5,2] ))))*2 < 0.05) 1 else 0
+      Gee_AR1              [i,j]  <- if((1-(pnorm( abs( coef(summary(AR1))            [5,1]  /   coef(summary(AR1))           [5,2] ))))*2 < 0.05) 1 else 0
+      Gee_unstructured     [i,j]  <- if((1-(pnorm( abs( coef(summary(unstructured))   [5,1]  /   coef(summary(unstructured))  [5,2] ))))*2 < 0.05) 1 else 0
+      Mixto_intercepto     [i,j]  <- if(coef(summary(intercepto))    [5,5]                                                                 < 0.05) 1 else 0
+      Mixto_pen_inter      [i,j]  <- if(coef(summary(pen_intercepto))[5,5]                                                                 < 0.05) 1 else 0
+      
+      Gee_intercanbiable_3 [i,j]  <- if((1-(pnorm( abs( coef(summary(intercanbiable)) [6,1]  /   coef(summary(intercanbiable))[6,2] ))))*2 < 0.05) 1 else 0
+      Gee_AR1_3            [i,j]  <- if((1-(pnorm( abs( coef(summary(AR1))            [6,1]  /   coef(summary(AR1))           [6,2] ))))*2 < 0.05) 1 else 0
+      Gee_unstructured_3   [i,j]  <- if((1-(pnorm( abs( coef(summary(unstructured))   [6,1]  /   coef(summary(unstructured))  [6,2] ))))*2 < 0.05) 1 else 0
+      Mixto_intercepto_3   [i,j]  <- if(coef(summary(intercepto))    [6,5]                                                                 < 0.05) 1 else 0
+      Mixto_pen_inter_3    [i,j]  <- if(coef(summary(pen_intercepto))[6,5]                                                                 < 0.05) 1 else 0
+      
+      print(c(n[[i]],j))
+      
+    }}
+    
+    #Base de datos para 3 tratamientos
+    Gee_inter     <- as.matrix(apply(X = Gee_intercanbiable,   MARGIN = 1, FUN = mean))
+    Gee_AR        <- as.matrix(apply(X = Gee_AR1,              MARGIN = 1, FUN = mean))
+    Gee_unst      <- as.matrix(apply(X = Gee_unstructured,     MARGIN = 1, FUN = mean))
+    Mixto_inte    <- as.matrix(apply(X = Mixto_intercepto,     MARGIN = 1, FUN = mean))
+    Mixto_pen_    <- as.matrix(apply(X = Mixto_pen_inter,      MARGIN = 1, FUN = mean))
+    
+    Gee_inter_3   <- as.matrix(apply(X = Gee_intercanbiable_3, MARGIN = 1, FUN = mean))
+    Gee_AR_3      <- as.matrix(apply(X = Gee_AR1_3,            MARGIN = 1, FUN = mean))
+    Gee_unst_3    <- as.matrix(apply(X = Gee_unstructured_3,   MARGIN = 1, FUN = mean))
+    Mixto_inte_3  <- as.matrix(apply(X = Mixto_intercepto_3,   MARGIN = 1, FUN = mean))
+    Mixto_pen_3   <- as.matrix(apply(X = Mixto_pen_inter_3,    MARGIN = 1, FUN = mean))
+    
+    Base <- as.data.frame(cbind(ID = n))
+    
+    Base <- mutate(Base,Gee_inter)
+    Base <- mutate(Base,Gee_AR)
+    Base <- mutate(Base,Gee_unst)
+    Base <- mutate(Base,Mixto_inte)
+    Base <- mutate(Base,Mixto_pen_)
+    
+    Base <- mutate(Base,Gee_inter_3)
+    Base <- mutate(Base,Gee_AR_3)
+    Base <- mutate(Base,Gee_unst_3)
+    Base <- mutate(Base,Mixto_inte_3)
+    Base <- mutate(Base,Mixto_pen_3)
+    
+  } else {"Favor indicar 2 o 3  tratamientos en 'treat'"}
+  
+  
+  # Capturando la hora de término del la función
+  Fin <- DescTools::Now()
+  
+  # Calculando la duración
+  Duración <- Fin - Inicio; print(Duración)
+  
+  # Retornando los resultados
+  return(Base = Base)
+  
+}
 
 Comp_modelos_par <- function(base, treat, n, repeticiones, t) {
   
