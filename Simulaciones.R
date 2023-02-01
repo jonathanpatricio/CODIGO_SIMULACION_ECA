@@ -1332,9 +1332,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_2$yij_2
-  Escenario_1 <- Comp_modelos_par(     base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 2500, t = 4)
-  Escenario_1 <- Comp_modelos(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 2500, t = 4)
-  Escenario_1_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_1 <- Comp_modelos_par(     base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4)
+  Escenario_1 <- Comp_modelos(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4)
+  Escenario_1_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_1, "Escenario_1.txt")
   write.table(Escenario_1_miss, "Escenario_1_miss.txt")
   
@@ -1396,8 +1396,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_2$yij_2
-  Escenario_4 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
-  Escenario_4_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_4 <- Comp_modelos    (base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000) , repeticiones = 10000, t = 8);Escenario_4;"Escenario_4"
+  Escenario_4 <- Comp_modelos_par(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000) , repeticiones = 10000, t = 8);Escenario_4;"Escenario_4"
+  Escenario_4_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_4, "Escenario_4.txt")
   write.table(Escenario_4_miss, "Escenario_4_miss.txt") 
   
@@ -1459,8 +1460,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_2$yij_2
-  Escenario_7 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
-  Escenario_7_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_7 <- Comp_modelos(    base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 1, t = 4);Escenario_7;"Escenario_7"
+  Escenario_7 <- Comp_modelos_par(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 1, t = 4);Escenario_7;"Escenario_7"
+  Escenario_7_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_7, "Escenario_7.txt")
   write.table(Escenario_7_miss, "Escenario_7_miss.txt") 
   
@@ -1523,8 +1525,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_2$yij_2
-  Escenario_10 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
-  Escenario_10_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_10 <- Comp_modelos(    base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_10;"Escenario_10"
+  Escenario_10 <- Comp_modelos_par(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_10;"Escenario_10"
+  Escenario_10_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_10, "Escenario_10.txt")
   write.table(Escenario_10_miss, "Escenario_10_miss.txt") 
   
@@ -1584,8 +1587,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_2$yij_2
-  Escenario_13 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
-  Escenario_13_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_13 <- Comp_modelos    (base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4);Escenario_13;"Escenario_13"
+  Escenario_13 <- Comp_modelos_par(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4);Escenario_13;"Escenario_13"
+  Escenario_13_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_13, "Escenario_13.txt")
   write.table(Escenario_13_miss, "Escenario_13_miss.txt") 
   
@@ -1648,8 +1652,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_2$yij_2
-  Escenario_16 <- Comp_modelos_par(         base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
-  Escenario_16_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_16 <- Comp_modelos    (base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_16;"Escenario_16"
+  Escenario_16 <- Comp_modelos_par(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_16;"Escenario_16"
+  Escenario_16_miss <- Comp_modelos_missing(base = base, treat = 2, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_16, "Escenario_16.txt")
   write.table(Escenario_16_miss, "Escenario_16_miss.txt") 
   
@@ -1712,8 +1717,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_3$yij_3
-  Escenario_19 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
-  Escenario_19_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_19 <- Comp_modelos(    base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4); Escenario_19; "Escenario_19"
+  Escenario_19 <- Comp_modelos_par(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4); Escenario_19; "Escenario_19"
+  Escenario_19_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_19, "Escenario_19.txt")
   write.table(Escenario_19_miss, "Escenario_19_miss.txt")
   
@@ -1772,8 +1778,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_3$yij_3
-  Escenario_22 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
-  Escenario_22_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_22 <- Comp_modelos    (base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_22;"Escenario_22"
+  Escenario_22 <- Comp_modelos_par(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_22;"Escenario_22"
+  Escenario_22_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_22, "Escenario_22.txt")
   write.table(Escenario_22_miss, "Escenario_22_miss.txt") 
   
@@ -1834,8 +1841,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_3$yij_3
-  Escenario_25 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
-  Escenario_25_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_25 <- Comp_modelos    (base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4);Escenario_25;"Escenario_25"
+  Escenario_25 <- Comp_modelos_par(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4);Escenario_25;"Escenario_25"
+  Escenario_25_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_25, "Escenario_25.txt")
   write.table(Escenario_25_miss, "Escenario_25_miss.txt") 
   
@@ -1897,8 +1905,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_3$yij_3
-  Escenario_28 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
-  Escenario_28_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_28 <- Comp_modelos    (base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_28;"Escenario_28"
+  Escenario_28 <- Comp_modelos_par(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_28;"Escenario_28"
+  Escenario_28_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_28, "Escenario_28.txt")
   write.table(Escenario_28_miss, "Escenario_28_miss.txt") 
   
@@ -1958,8 +1967,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_3$yij_3
-  Escenario_31 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4)
-  Escenario_31_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_31 <- Comp_modelos    (base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4);Escenario_31;"Escenario_31"
+  Escenario_31 <- Comp_modelos_par(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4);Escenario_31;"Escenario_31"
+  Escenario_31_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 4, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_31, "Escenario_31.txt")
   write.table(Escenario_31_miss, "Escenario_31_miss.txt") 
   
@@ -2021,8 +2031,9 @@
                        var_eij = 22.09)
   
   base <- población$Treat_3$yij_3
-  Escenario_34 <- Comp_modelos_par(         base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8)
-  Escenario_34_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000, 2500,3000,3500,4000,4500,5000,6000,7000,8000,9000,10000), repeticiones = 1, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
+  Escenario_34 <- Comp_modelos    (base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_34;"Escenario_34"
+  Escenario_34 <- Comp_modelos_par(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8);Escenario_34;"Escenario_34"
+  Escenario_34_miss <- Comp_modelos_missing(base = base, treat = 3, n = c(10,30,50,70,100,250,500,750,1000,1250,1500,1750,2000), repeticiones = 10000, t = 8, q = 0.1, mi = 0.2, mc = 0.05, ms = 0.2)
   write.table(Escenario_34, "Escenario_34.txt")
   write.table(Escenario_34_miss, "Escenario_34_miss.txt") 
   
