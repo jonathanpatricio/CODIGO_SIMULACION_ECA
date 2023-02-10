@@ -292,7 +292,7 @@
     Mixto_pen_inter_3     <- matrix(0,length(n),repeticiones)
     
     # Ajuntando los parámetros para utilizar %dopar%
-    doParallel::registerDoParallel( cl = parallel::makeCluster( parallel::detectCores() - 2, type = "PSOCK" ))
+    doParallel::registerDoParallel( cl = parallel::makeCluster( parallel::detectCores() - 1, type = "PSOCK" ))
     
     # Cálculos para 2 tratamientos
     if(treat == 2){ 
@@ -353,6 +353,7 @@
           Mixto_pen_inter    [i,j] <- r$mixto_pen_inter
         }
         print(n[[i]])
+        print(DescTools::Now() - Inicio)
       }
       
       #Base de datos para 2 tratamientos
@@ -449,6 +450,7 @@
           
         }
         print(n[[i]])
+        print(DescTools::Now() - Inicio)
       }
       
       #Base de datos para 3 tratamientos
