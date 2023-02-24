@@ -491,6 +491,981 @@
     return(Base = Base)
     
   }
+    
+      Comp_modelos_missing_par <- function(base, treat, n, repeticiones, t, q, mi, mc, ms) {
+    
+    # Capturando la hora de inicio del la función
+    Inicio <- DescTools::Now()
+    
+
+    
+    # Librerías que utiliza la función
+
+    library(parallel)
+    library(foreach)
+    
+    # Matrices que guardarán los resultados de las hipótesis planteadas para 2 y 3 tratamientos
+    Gee_intercanbiable    <- matrix(0,length(n),repeticiones)
+    Gee_AR1               <- matrix(0,length(n),repeticiones)
+    Gee_unstructured      <- matrix(0,length(n),repeticiones) 
+    Mixto_intercepto      <- matrix(0,length(n),repeticiones)
+    Mixto_pen_inter       <- matrix(0,length(n),repeticiones)
+    
+    Gee_intercanbiable_3  <- matrix(0,length(n),repeticiones)
+    Gee_AR1_3             <- matrix(0,length(n),repeticiones)
+    Gee_unstructured_3    <- matrix(0,length(n),repeticiones) 
+    Mixto_intercepto_3    <- matrix(0,length(n),repeticiones)
+    Mixto_pen_inter_3     <- matrix(0,length(n),repeticiones)
+
+    doParallel::registerDoParallel( cl = parallel::makeCluster( parallel::detectCores() - 2, type = "PSOCK" ))
+    
+    # Bucle para 2 tratamientos y 8 mediciones
+    if (treat == 2 & t == 4) {
+      for (i in 1:length(n)) {
+
+        i_result <- foreach (j = 1:repeticiones) %dopar%  {
+
+          library(dplyr)
+          library(lmerTest)
+          library(lme4)
+          library(geepack)
+        
+          # Semilla para fijar los resultados
+          set.seed(i * j)
+          
+          sample_treat_1 <- base[sample(x = 1:(nrow(base)/2),            size = n[[i]], replace = FALSE),]
+          sample_treat_2 <- base[sample(x = (nrow(base)/2+1):nrow(base), size = n[[i]], replace = FALSE),]
+          
+          # Eliminando las observaciones para el tratamiento 1
+          t1 <- as.data.frame(cbind(ID = sample_treat_1$ID, t1 = sample_treat_1$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_1$ID, t2 = sample_treat_1$V2, umbral = cut(x = sample_treat_1$V2, breaks = c(-Inf, quantile(x = sample_treat_1$V2, probs = q), quantile(x = sample_treat_1$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_1$ID, t3 = sample_treat_1$V3, umbral = cut(x = sample_treat_1$V3, breaks = c(-Inf, quantile(x = sample_treat_1$V3, probs = q), quantile(x = sample_treat_1$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_1$ID, t4 = sample_treat_1$V4, umbral = cut(x = sample_treat_1$V4, breaks = c(-Inf, quantile(x = sample_treat_1$V4, probs = q), quantile(x = sample_treat_1$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_1_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t3, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t4, by = "ID")
+          sample_treat_1_perdidas <- mutate(sample_treat_1_perdidas, treat = rep(1, nrow(sample_treat_1)))
+          
+          # Eliminando las observaciones para el tratamiento 2
+          
+          t1 <- as.data.frame(cbind(ID = sample_treat_2$ID, t1 = sample_treat_2$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_2$ID, t2 = sample_treat_2$V2, umbral = cut(x = sample_treat_2$V2, breaks = c(-Inf, quantile(x = sample_treat_2$V2, probs = q), quantile(x = sample_treat_2$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_2$ID, t3 = sample_treat_2$V3, umbral = cut(x = sample_treat_2$V3, breaks = c(-Inf, quantile(x = sample_treat_2$V3, probs = q), quantile(x = sample_treat_2$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_2$ID, t4 = sample_treat_2$V4, umbral = cut(x = sample_treat_2$V4, breaks = c(-Inf, quantile(x = sample_treat_2$V4, probs = q), quantile(x = sample_treat_2$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_2_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t3, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t4, by = "ID")
+          sample_treat_2_perdidas <- mutate(sample_treat_2_perdidas, treat = rep(2, nrow(sample_treat_2_perdidas)))
+          
+          # Muestra de ambos tratamiento con perdidas
+          sample <- bind_rows(sample_treat_1_perdidas,sample_treat_2_perdidas)
+          
+          sample_long <- reshape(data = sample,varying = 2:(t+1), v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+          sample_long <- arrange(sample_long,ID,tiempo)
+          sample_long$tiempo <- as.numeric(sample_long$tiempo)
+          sample_long$treat <- as.factor(sample_long$treat)
+          sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
+          
+          #Modelos
+          intercanbiable <- geeglm (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "exchangeable")
+          AR1            <- geeglm (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "ar1")        
+          unstructured   <- geeglm (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "unstructured")
+          intercepto     <- lmer(formula = yij ~ treat + tiempo + treat * tiempo + (1     |ID), data = sample_long, REML = FALSE)
+          pen_intercepto <- lmer(formula = yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
+          
+          #Completando las matrices con la decisión de la hipótesis
+          
+          gee_intercanbiable <- if((1-(pnorm(abs(as.matrix(intercanbiable$coefficients)[4,]/coef(summary(intercanbiable))[4,2]))))*2 < 0.05) 1 else 0
+          gee_AR1            <- if((1-(pnorm(abs(as.matrix(AR1$coefficients)[4,]           /coef(summary(AR1))[4,2]))))*2            < 0.05) 1 else 0
+          gee_unstructured   <- if((1-(pnorm(abs(as.matrix(unstructured$coefficients)[4,]  /coef(summary(unstructured))[4,2]))))*2   < 0.05) 1 else 0
+          mixto_intercepto   <- if(coef(summary(intercepto))[4,5]     < 0.05) 1 else 0
+          mixto_pen_inter    <- if(coef(summary(pen_intercepto))[4,5] < 0.05) 1 else 0
+          
+          # print(c(n[[i]],j, round((sum(is.na(sample_long$yij))/nrow(sample_long))*100, 1) ))
+
+          r <- list(
+            j = j,
+            gee_intercanbiable = as.integer(gee_intercanbiable),
+            gee_AR1 = as.integer(gee_AR1),
+            gee_unstructured = as.integer(gee_unstructured),
+            mixto_intercepto = as.integer(mixto_intercepto),
+            mixto_pen_inter = as.integer(mixto_pen_inter)
+          )
+          r
+        }
+
+        for(r in i_result) {
+          j <- r$j
+          Gee_intercanbiable [i,j] <- r$gee_intercanbiable
+          Gee_AR1            [i,j] <- r$gee_AR1
+          Gee_unstructured   [i,j] <- r$gee_unstructured
+          Mixto_intercepto   [i,j] <- r$mixto_intercepto
+          Mixto_pen_inter    [i,j] <- r$mixto_pen_inter
+        }
+        print(n[[i]])
+      }
+    }
+    if (treat == 2 & t == 8) {
+      
+      for (i in 1:length(n)) {
+        i_result <- foreach (j = 1:repeticiones) %dopar%  {
+
+          library(dplyr)
+          library(lmerTest)
+          library(lme4)
+          library(geepack)
+
+          # Semilla para fijar los resultados
+          set.seed(i * j)
+        
+          sample_treat_1 <- base[sample(x = 1:(nrow(base)/2),            size = n[[i]], replace = FALSE),]
+          sample_treat_2 <- base[sample(x = (nrow(base)/2+1):nrow(base), size = n[[i]], replace = FALSE),]
+          
+          # Eliminando las observaciones para el tratamiento 1
+          t1 <- as.data.frame(cbind(ID = sample_treat_1$ID, t1 = sample_treat_1$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_1$ID, t2 = sample_treat_1$V2, umbral = cut(x = sample_treat_1$V2, breaks = c(-Inf, quantile(x = sample_treat_1$V2, probs = q), quantile(x = sample_treat_1$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_1$ID, t3 = sample_treat_1$V3, umbral = cut(x = sample_treat_1$V3, breaks = c(-Inf, quantile(x = sample_treat_1$V3, probs = q), quantile(x = sample_treat_1$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_1$ID, t4 = sample_treat_1$V4, umbral = cut(x = sample_treat_1$V4, breaks = c(-Inf, quantile(x = sample_treat_1$V4, probs = q), quantile(x = sample_treat_1$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          t5 <- as.data.frame(cbind(ID = sample_treat_1$ID, t5 = sample_treat_1$V5, umbral = cut(x = sample_treat_1$V5, breaks = c(-Inf, quantile(x = sample_treat_1$V5, probs = q), quantile(x = sample_treat_1$V5, probs = (1-q)),Inf))))
+          t5 <- t5 %>% filter(ID %in% t4$ID)
+          n1 <- trunc((nrow(t5)*q)*mi); n2 <- trunc((nrow(t5)*(1-(q*2)))*mc); n3 <- trunc((nrow(t5)*q)*ms)
+          borrar_1 <- if((nrow( t5 %>% filter(umbral == 1) )) > n1){true =  (t5 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t5 %>% filter(umbral == 2) )) > n2){true =  (t5 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t5 %>% filter(umbral == 3) )) > n3){true =  (t5 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_1$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_2$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_3$ID)
+          
+          t6 <- as.data.frame(cbind(ID = sample_treat_1$ID, t6 = sample_treat_1$V6, umbral = cut(x = sample_treat_1$V6, breaks = c(-Inf, quantile(x = sample_treat_1$V6, probs = q), quantile(x = sample_treat_1$V6, probs = (1-q)),Inf))))
+          t6 <- t6 %>% filter(ID %in% t5$ID)
+          n1 <- trunc((nrow(t6)*q)*mi); n2 <- trunc((nrow(t6)*(1-(q*2)))*mc); n3 <- trunc((nrow(t6)*q)*ms)
+          borrar_1 <- if((nrow( t6 %>% filter(umbral == 1) )) > n1){true =  (t6 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t6 %>% filter(umbral == 2) )) > n2){true =  (t6 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t6 %>% filter(umbral == 3) )) > n3){true =  (t6 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_1$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_2$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_3$ID)
+          
+          t7 <- as.data.frame(cbind(ID = sample_treat_1$ID, t7 = sample_treat_1$V7, umbral = cut(x = sample_treat_1$V7, breaks = c(-Inf, quantile(x = sample_treat_1$V7, probs = q), quantile(x = sample_treat_1$V7, probs = (1-q)),Inf))))
+          t7 <- t7 %>% filter(ID %in% t6$ID)
+          n1 <- trunc((nrow(t7)*q)*mi); n2 <- trunc((nrow(t7)*(1-(q*2)))*mc); n3 <- trunc((nrow(t7)*q)*ms)
+          borrar_1 <- if((nrow( t7 %>% filter(umbral == 1) )) > n1){true =  (t7 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t7 %>% filter(umbral == 2) )) > n2){true =  (t7 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t7 %>% filter(umbral == 3) )) > n3){true =  (t7 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_1$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_2$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_3$ID)
+          
+          t8 <- as.data.frame(cbind(ID = sample_treat_1$ID, t8 = sample_treat_1$V8, umbral = cut(x = sample_treat_1$V8, breaks = c(-Inf, quantile(x = sample_treat_1$V8, probs = q), quantile(x = sample_treat_1$V8, probs = (1-q)),Inf))))
+          t8 <- t8 %>% filter(ID %in% t7$ID)
+          n1 <- trunc((nrow(t8)*q)*mi); n2 <- trunc((nrow(t8)*(1-(q*2)))*mc); n3 <- trunc((nrow(t8)*q)*ms)
+          borrar_1 <- if((nrow( t8 %>% filter(umbral == 1) )) > n1){true =  (t8 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t8 %>% filter(umbral == 2) )) > n2){true =  (t8 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t8 %>% filter(umbral == 3) )) > n3){true =  (t8 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_1$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_2$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_1_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t3, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t4, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t5, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t6, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t7, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t8, by = "ID")
+          sample_treat_1_perdidas <- mutate(sample_treat_1_perdidas, treat = rep(1, nrow(sample_treat_1)))
+          
+          # Eliminando las observaciones para el tratamiento 2
+          
+          t1 <- as.data.frame(cbind(ID = sample_treat_2$ID, t1 = sample_treat_2$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_2$ID, t2 = sample_treat_2$V2, umbral = cut(x = sample_treat_2$V2, breaks = c(-Inf, quantile(x = sample_treat_2$V2, probs = q), quantile(x = sample_treat_2$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_2$ID, t3 = sample_treat_2$V3, umbral = cut(x = sample_treat_2$V3, breaks = c(-Inf, quantile(x = sample_treat_2$V3, probs = q), quantile(x = sample_treat_2$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_2$ID, t4 = sample_treat_2$V4, umbral = cut(x = sample_treat_2$V4, breaks = c(-Inf, quantile(x = sample_treat_2$V4, probs = q), quantile(x = sample_treat_2$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          t5 <- as.data.frame(cbind(ID = sample_treat_2$ID, t5 = sample_treat_2$V5, umbral = cut(x = sample_treat_2$V5, breaks = c(-Inf, quantile(x = sample_treat_2$V5, probs = q), quantile(x = sample_treat_2$V5, probs = (1-q)),Inf))))
+          t5 <- t5 %>% filter(ID %in% t4$ID)
+          n1 <- trunc((nrow(t5)*q)*mi); n2 <- trunc((nrow(t5)*(1-(q*2)))*mc); n3 <- trunc((nrow(t5)*q)*ms)
+          borrar_1 <- if((nrow( t5 %>% filter(umbral == 1) )) > n1){true =  (t5 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t5 %>% filter(umbral == 2) )) > n2){true =  (t5 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t5 %>% filter(umbral == 3) )) > n3){true =  (t5 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_1$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_2$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_3$ID)
+          
+          t6 <- as.data.frame(cbind(ID = sample_treat_2$ID, t6 = sample_treat_2$V6, umbral = cut(x = sample_treat_2$V6, breaks = c(-Inf, quantile(x = sample_treat_2$V6, probs = q), quantile(x = sample_treat_2$V6, probs = (1-q)),Inf))))
+          t6 <- t6 %>% filter(ID %in% t5$ID)
+          n1 <- trunc((nrow(t6)*q)*mi); n2 <- trunc((nrow(t6)*(1-(q*2)))*mc); n3 <- trunc((nrow(t6)*q)*ms)
+          borrar_1 <- if((nrow( t6 %>% filter(umbral == 1) )) > n1){true =  (t6 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t6 %>% filter(umbral == 2) )) > n2){true =  (t6 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t6 %>% filter(umbral == 3) )) > n3){true =  (t6 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_1$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_2$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_3$ID)
+          
+          t7 <- as.data.frame(cbind(ID = sample_treat_2$ID, t7 = sample_treat_2$V7, umbral = cut(x = sample_treat_2$V7, breaks = c(-Inf, quantile(x = sample_treat_2$V7, probs = q), quantile(x = sample_treat_2$V7, probs = (1-q)),Inf))))
+          t7 <- t7 %>% filter(ID %in% t6$ID)
+          n1 <- trunc((nrow(t7)*q)*mi); n2 <- trunc((nrow(t7)*(1-(q*2)))*mc); n3 <- trunc((nrow(t7)*q)*ms)
+          borrar_1 <- if((nrow( t7 %>% filter(umbral == 1) )) > n1){true =  (t7 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t7 %>% filter(umbral == 2) )) > n2){true =  (t7 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t7 %>% filter(umbral == 3) )) > n3){true =  (t7 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_1$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_2$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_3$ID)
+          
+          t8 <- as.data.frame(cbind(ID = sample_treat_2$ID, t8 = sample_treat_2$V8, umbral = cut(x = sample_treat_2$V8, breaks = c(-Inf, quantile(x = sample_treat_2$V8, probs = q), quantile(x = sample_treat_2$V8, probs = (1-q)),Inf))))
+          t8 <- t8 %>% filter(ID %in% t7$ID)
+          n1 <- trunc((nrow(t8)*q)*mi); n2 <- trunc((nrow(t8)*(1-(q*2)))*mc); n3 <- trunc((nrow(t8)*q)*ms)
+          borrar_1 <- if((nrow( t8 %>% filter(umbral == 1) )) > n1){true =  (t8 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t8 %>% filter(umbral == 2) )) > n2){true =  (t8 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t8 %>% filter(umbral == 3) )) > n3){true =  (t8 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_1$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_2$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_2_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t3, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t4, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t5, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t6, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t7, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t8, by = "ID")
+          sample_treat_2_perdidas <- mutate(sample_treat_2_perdidas, treat = rep(2, nrow(sample_treat_2_perdidas)))
+          
+          # Muestra de ambos tratamiento con perdidas
+          sample <- bind_rows(sample_treat_1_perdidas,sample_treat_2_perdidas)
+          
+          sample_long <- reshape(data = sample,varying = 2:(t+1), v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+          sample_long <- arrange(sample_long,ID,tiempo)
+          sample_long$tiempo <- as.numeric(sample_long$tiempo)
+          sample_long$treat <- as.factor(sample_long$treat)
+          sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
+          
+          #Modelos
+          intercanbiable <- geeglm (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "exchangeable")
+          AR1            <- geeglm (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "ar1")        
+          unstructured   <- geeglm (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "unstructured")
+          intercepto     <- lmer(formula = yij ~ treat + tiempo + treat * tiempo + (1     |ID), data = sample_long, REML = FALSE)
+          pen_intercepto <- lmer(formula = yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
+          
+          #Completando las matrices con la decisión de la hipótesis
+          
+          gee_intercanbiable <- if((1-(pnorm(abs(as.matrix(intercanbiable$coefficients)[4,]/coef(summary(intercanbiable))[4,2]))))*2 < 0.05) 1 else 0
+          gee_AR1            <- if((1-(pnorm(abs(as.matrix(AR1$coefficients)[4,]           /coef(summary(AR1))[4,2]))))*2            < 0.05) 1 else 0
+          gee_unstructured   <- if((1-(pnorm(abs(as.matrix(unstructured$coefficients)[4,]  /coef(summary(unstructured))[4,2]))))*2   < 0.05) 1 else 0
+          mixto_intercepto   <- if(coef(summary(intercepto))[4,5]     < 0.05) 1 else 0
+          mixto_pen_inter    <- if(coef(summary(pen_intercepto))[4,5] < 0.05) 1 else 0
+          
+          # print(c(n[[i]],j, round((sum(is.na(sample_long$yij))/nrow(sample_long))*100, 1) ))
+          r <- list(
+            j = j,
+            gee_intercanbiable = as.integer(gee_intercanbiable),
+            gee_AR1 = as.integer(gee_AR1),
+            gee_unstructured = as.integer(gee_unstructured),
+            mixto_intercepto = as.integer(mixto_intercepto),
+            mixto_pen_inter = as.integer(mixto_pen_inter)
+          )
+          r
+        }
+
+        for(r in i_result) {
+          j <- r$j
+          Gee_intercanbiable [i,j] <- r$gee_intercanbiable
+          Gee_AR1            [i,j] <- r$gee_AR1
+          Gee_unstructured   [i,j] <- r$gee_unstructured
+          Mixto_intercepto   [i,j] <- r$mixto_intercepto
+          Mixto_pen_inter    [i,j] <- r$mixto_pen_inter
+        }
+        print(n[[i]])
+      }
+    }
+    if (treat == 3 & t == 4) {
+      for (i in 1:length(n)) {
+        i_result <- foreach (j = 1:repeticiones) %dopar%  {
+          
+          library(dplyr)
+          library(lmerTest)
+          library(lme4)
+          library(geepack)
+          
+          # Semilla para fijar los resultados
+          set.seed(i * j)
+          
+          sample_treat_1 <- base[sample(x = 1:(nrow(base)/3),                    size = n[[i]], replace = FALSE),]
+          sample_treat_2 <- base[sample(x = (nrow(base)/3+1):((nrow(base)/3)*2), size = n[[i]], replace = FALSE),]
+          sample_treat_3 <- base[sample(x = ((nrow(base)/3)*2+1):nrow(base),     size = n[[i]], replace = FALSE),]
+          
+          # Eliminando las observaciones para el tratamiento 1
+          t1 <- as.data.frame(cbind(ID = sample_treat_1$ID, t1 = sample_treat_1$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_1$ID, t2 = sample_treat_1$V2, umbral = cut(x = sample_treat_1$V2, breaks = c(-Inf, quantile(x = sample_treat_1$V2, probs = q), quantile(x = sample_treat_1$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_1$ID, t3 = sample_treat_1$V3, umbral = cut(x = sample_treat_1$V3, breaks = c(-Inf, quantile(x = sample_treat_1$V3, probs = q), quantile(x = sample_treat_1$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_1$ID, t4 = sample_treat_1$V4, umbral = cut(x = sample_treat_1$V4, breaks = c(-Inf, quantile(x = sample_treat_1$V4, probs = q), quantile(x = sample_treat_1$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_1_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t3, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t4, by = "ID")
+          sample_treat_1_perdidas <- mutate(sample_treat_1_perdidas, treat = rep(1, nrow(sample_treat_1)))
+          
+          # Eliminando las observaciones para el tratamiento 2
+          
+          t1 <- as.data.frame(cbind(ID = sample_treat_2$ID, t1 = sample_treat_2$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_2$ID, t2 = sample_treat_2$V2, umbral = cut(x = sample_treat_2$V2, breaks = c(-Inf, quantile(x = sample_treat_2$V2, probs = q), quantile(x = sample_treat_2$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_2$ID, t3 = sample_treat_2$V3, umbral = cut(x = sample_treat_2$V3, breaks = c(-Inf, quantile(x = sample_treat_2$V3, probs = q), quantile(x = sample_treat_2$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_2$ID, t4 = sample_treat_2$V4, umbral = cut(x = sample_treat_2$V4, breaks = c(-Inf, quantile(x = sample_treat_2$V4, probs = q), quantile(x = sample_treat_2$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_2_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t3, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t4, by = "ID")
+          sample_treat_2_perdidas <- mutate(sample_treat_2_perdidas, treat = rep(2, nrow(sample_treat_2_perdidas)))
+          
+          # Eliminando las observaciones para el tratamiento 3
+          t1 <- as.data.frame(cbind(ID = sample_treat_3$ID, t1 = sample_treat_3$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_3$ID, t2 = sample_treat_3$V2, umbral = cut(x = sample_treat_3$V2, breaks = c(-Inf, quantile(x = sample_treat_3$V2, probs = q), quantile(x = sample_treat_3$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_3$ID, t3 = sample_treat_3$V3, umbral = cut(x = sample_treat_3$V3, breaks = c(-Inf, quantile(x = sample_treat_3$V3, probs = q), quantile(x = sample_treat_3$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_3$ID, t4 = sample_treat_3$V4, umbral = cut(x = sample_treat_3$V4, breaks = c(-Inf, quantile(x = sample_treat_3$V4, probs = q), quantile(x = sample_treat_3$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_3_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_3_perdidas <- full_join(x = sample_treat_3_perdidas, y = t3, by = "ID")
+          sample_treat_3_perdidas <- full_join(x = sample_treat_3_perdidas, y = t4, by = "ID")
+          sample_treat_3_perdidas <- mutate(sample_treat_3_perdidas, treat = rep(3, nrow(sample_treat_3)))
+          
+          # Muestra de ambos tratamiento con perdidas
+          sample <- bind_rows(sample_treat_1_perdidas,sample_treat_2_perdidas,sample_treat_3_perdidas)
+          
+          sample_long <- reshape(data = sample,varying = 2:(t+1), v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+          sample_long <- arrange(sample_long,ID,tiempo)
+          sample_long$tiempo <- as.numeric(sample_long$tiempo)
+          sample_long$treat <- as.factor(sample_long$treat)
+          sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
+          
+          #Modelos
+          intercanbiable <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,     id = ID,    data = sample_long, family = gaussian, corstr = "exchangeable")
+          AR1            <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,     id = ID,    data = sample_long, family = gaussian, corstr = "ar1")
+          unstructured   <- geeglm(formula = yij ~ treat + tiempo + treat * tiempo,     id = ID,    data = sample_long, family = gaussian, corstr = "unstructured")
+          intercepto     <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo + (1     |ID),   data = sample_long, REML = FALSE)
+          pen_intercepto <- lmer  (formula = yij ~ treat + tiempo + treat * tiempo + (tiempo|ID),   data = sample_long, REML = FALSE)
+          
+          #Completando las matrices con la decisión de la hipótesis
+          gee_intercanbiable <- if((1-(pnorm( abs( coef(summary(intercanbiable)) [5,1]  /   coef(summary(intercanbiable))[5,2] ))))*2 < 0.05) 1 else 0
+          gee_AR1            <- if((1-(pnorm( abs( coef(summary(AR1))            [5,1]  /   coef(summary(AR1))           [5,2] ))))*2 < 0.05) 1 else 0
+          gee_unstructured   <- if((1-(pnorm( abs( coef(summary(unstructured))   [5,1]  /   coef(summary(unstructured))  [5,2] ))))*2 < 0.05) 1 else 0
+          mixto_intercepto   <- if(coef(summary(intercepto))    [5,5]                                                                 < 0.05) 1 else 0
+          mixto_pen_inter    <- if(coef(summary(pen_intercepto))[5,5]                                                                 < 0.05) 1 else 0
+          
+          gee_intercanbiable_3 <- if((1-(pnorm( abs( coef(summary(intercanbiable)) [6,1]  /   coef(summary(intercanbiable))[6,2] ))))*2 < 0.05) 1 else 0
+          gee_AR1_3            <- if((1-(pnorm( abs( coef(summary(AR1))            [6,1]  /   coef(summary(AR1))           [6,2] ))))*2 < 0.05) 1 else 0
+          gee_unstructured_3   <- if((1-(pnorm( abs( coef(summary(unstructured))   [6,1]  /   coef(summary(unstructured))  [6,2] ))))*2 < 0.05) 1 else 0
+          mixto_intercepto_3   <- if(coef(summary(intercepto))    [6,5]                                                                 < 0.05) 1 else 0
+          mixto_pen_inter_3    <- if(coef(summary(pen_intercepto))[6,5]                                                                 < 0.05) 1 else 0
+          
+          # print(c(n[[i]],j, round((sum(is.na(sample_long$yij))/nrow(sample_long))*100, 1) ))
+
+          r <- list(
+            j = j,
+            gee_intercanbiable = as.integer(gee_intercanbiable),
+            gee_AR1 = as.integer(gee_AR1),
+            gee_unstructured = as.integer(gee_unstructured),
+            mixto_intercepto = as.integer(mixto_intercepto),
+            mixto_pen_inter = as.integer(mixto_pen_inter),
+
+            gee_intercanbiable_3 = as.integer(gee_intercanbiable_3),
+            gee_AR1_3 = as.integer(gee_AR1_3),
+            gee_unstructured_3 = as.integer(gee_unstructured_3),
+            mixto_intercepto_3 = as.integer(mixto_intercepto_3),
+            mixto_pen_inter_3 = as.integer(mixto_pen_inter_3),
+          )
+          r
+        
+        }
+
+        #Completando las matrices con la decisión de la hipótesis 
+        for(r in i_result) {
+          j <- r$j
+          Gee_intercanbiable [i,j] <- r$gee_intercanbiable
+          Gee_AR1            [i,j] <- r$gee_AR1
+          Gee_unstructured   [i,j] <- r$gee_unstructured
+          Mixto_intercepto   [i,j] <- r$mixto_intercepto
+          Mixto_pen_inter    [i,j] <- r$mixto_pen_inter
+
+          Gee_intercanbiable_3 [i,j] <- r$gee_intercanbiable_3
+          Gee_AR1_3            [i,j] <- r$gee_AR1_3
+          Gee_unstructured_3   [i,j] <- r$gee_unstructured_3
+          Mixto_intercepto_3   [i,j] <- r$mixto_intercepto_3
+          Mixto_pen_inter_3    [i,j] <- r$mixto_pen_inter_3
+        }
+        print(n[[i]])
+      }
+    }
+    if (treat == 3 & t == 8) {
+      
+      for (i in 1:length(n)) {
+        i_result <- foreach (j = 1:repeticiones) %dopar%  {
+          
+          library(dplyr)
+          library(lmerTest)
+          library(lme4)
+          library(geepack)
+          
+          # Semilla para fijar los resultados
+          set.seed(i * j)
+          
+          sample_treat_1 <- base[sample(x = 1:(nrow(base)/3),                    size = n[[i]], replace = FALSE),]
+          sample_treat_2 <- base[sample(x = (nrow(base)/3+1):((nrow(base)/3)*2), size = n[[i]], replace = FALSE),]
+          sample_treat_3 <- base[sample(x = ((nrow(base)/3)*2+1):nrow(base),     size = n[[i]], replace = FALSE),]
+          
+          # Eliminando las observaciones para el tratamiento 1
+          t1 <- as.data.frame(cbind(ID = sample_treat_1$ID, t1 = sample_treat_1$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_1$ID, t2 = sample_treat_1$V2, umbral = cut(x = sample_treat_1$V2, breaks = c(-Inf, quantile(x = sample_treat_1$V2, probs = q), quantile(x = sample_treat_1$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_1$ID, t3 = sample_treat_1$V3, umbral = cut(x = sample_treat_1$V3, breaks = c(-Inf, quantile(x = sample_treat_1$V3, probs = q), quantile(x = sample_treat_1$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_1$ID, t4 = sample_treat_1$V4, umbral = cut(x = sample_treat_1$V4, breaks = c(-Inf, quantile(x = sample_treat_1$V4, probs = q), quantile(x = sample_treat_1$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          t5 <- as.data.frame(cbind(ID = sample_treat_1$ID, t5 = sample_treat_1$V5, umbral = cut(x = sample_treat_1$V5, breaks = c(-Inf, quantile(x = sample_treat_1$V5, probs = q), quantile(x = sample_treat_1$V5, probs = (1-q)),Inf))))
+          t5 <- t5 %>% filter(ID %in% t4$ID)
+          n1 <- trunc((nrow(t5)*q)*mi); n2 <- trunc((nrow(t5)*(1-(q*2)))*mc); n3 <- trunc((nrow(t5)*q)*ms)
+          borrar_1 <- if((nrow( t5 %>% filter(umbral == 1) )) > n1){true =  (t5 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t5 %>% filter(umbral == 2) )) > n2){true =  (t5 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t5 %>% filter(umbral == 3) )) > n3){true =  (t5 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_1$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_2$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_3$ID)
+          
+          t6 <- as.data.frame(cbind(ID = sample_treat_1$ID, t6 = sample_treat_1$V6, umbral = cut(x = sample_treat_1$V6, breaks = c(-Inf, quantile(x = sample_treat_1$V6, probs = q), quantile(x = sample_treat_1$V6, probs = (1-q)),Inf))))
+          t6 <- t6 %>% filter(ID %in% t5$ID)
+          n1 <- trunc((nrow(t6)*q)*mi); n2 <- trunc((nrow(t6)*(1-(q*2)))*mc); n3 <- trunc((nrow(t6)*q)*ms)
+          borrar_1 <- if((nrow( t6 %>% filter(umbral == 1) )) > n1){true =  (t6 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t6 %>% filter(umbral == 2) )) > n2){true =  (t6 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t6 %>% filter(umbral == 3) )) > n3){true =  (t6 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_1$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_2$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_3$ID)
+          
+          t7 <- as.data.frame(cbind(ID = sample_treat_1$ID, t7 = sample_treat_1$V7, umbral = cut(x = sample_treat_1$V7, breaks = c(-Inf, quantile(x = sample_treat_1$V7, probs = q), quantile(x = sample_treat_1$V7, probs = (1-q)),Inf))))
+          t7 <- t7 %>% filter(ID %in% t6$ID)
+          n1 <- trunc((nrow(t7)*q)*mi); n2 <- trunc((nrow(t7)*(1-(q*2)))*mc); n3 <- trunc((nrow(t7)*q)*ms)
+          borrar_1 <- if((nrow( t7 %>% filter(umbral == 1) )) > n1){true =  (t7 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t7 %>% filter(umbral == 2) )) > n2){true =  (t7 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t7 %>% filter(umbral == 3) )) > n3){true =  (t7 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_1$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_2$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_3$ID)
+          
+          t8 <- as.data.frame(cbind(ID = sample_treat_1$ID, t8 = sample_treat_1$V8, umbral = cut(x = sample_treat_1$V8, breaks = c(-Inf, quantile(x = sample_treat_1$V8, probs = q), quantile(x = sample_treat_1$V8, probs = (1-q)),Inf))))
+          t8 <- t8 %>% filter(ID %in% t7$ID)
+          n1 <- trunc((nrow(t8)*q)*mi); n2 <- trunc((nrow(t8)*(1-(q*2)))*mc); n3 <- trunc((nrow(t8)*q)*ms)
+          borrar_1 <- if((nrow( t8 %>% filter(umbral == 1) )) > n1){true =  (t8 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t8 %>% filter(umbral == 2) )) > n2){true =  (t8 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t8 %>% filter(umbral == 3) )) > n3){true =  (t8 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_1$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_2$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_1_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t3, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t4, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t5, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t6, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t7, by = "ID")
+          sample_treat_1_perdidas <- full_join(x = sample_treat_1_perdidas, y = t8, by = "ID")
+          sample_treat_1_perdidas <- mutate(sample_treat_1_perdidas, treat = rep(1, nrow(sample_treat_1)))
+          
+          # Eliminando las observaciones para el tratamiento 2
+          
+          t1 <- as.data.frame(cbind(ID = sample_treat_2$ID, t1 = sample_treat_2$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_2$ID, t2 = sample_treat_2$V2, umbral = cut(x = sample_treat_2$V2, breaks = c(-Inf, quantile(x = sample_treat_2$V2, probs = q), quantile(x = sample_treat_2$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_2$ID, t3 = sample_treat_2$V3, umbral = cut(x = sample_treat_2$V3, breaks = c(-Inf, quantile(x = sample_treat_2$V3, probs = q), quantile(x = sample_treat_2$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_2$ID, t4 = sample_treat_2$V4, umbral = cut(x = sample_treat_2$V4, breaks = c(-Inf, quantile(x = sample_treat_2$V4, probs = q), quantile(x = sample_treat_2$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          t5 <- as.data.frame(cbind(ID = sample_treat_2$ID, t5 = sample_treat_2$V5, umbral = cut(x = sample_treat_2$V5, breaks = c(-Inf, quantile(x = sample_treat_2$V5, probs = q), quantile(x = sample_treat_2$V5, probs = (1-q)),Inf))))
+          t5 <- t5 %>% filter(ID %in% t4$ID)
+          n1 <- trunc((nrow(t5)*q)*mi); n2 <- trunc((nrow(t5)*(1-(q*2)))*mc); n3 <- trunc((nrow(t5)*q)*ms)
+          borrar_1 <- if((nrow( t5 %>% filter(umbral == 1) )) > n1){true =  (t5 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t5 %>% filter(umbral == 2) )) > n2){true =  (t5 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t5 %>% filter(umbral == 3) )) > n3){true =  (t5 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_1$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_2$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_3$ID)
+          
+          t6 <- as.data.frame(cbind(ID = sample_treat_2$ID, t6 = sample_treat_2$V6, umbral = cut(x = sample_treat_2$V6, breaks = c(-Inf, quantile(x = sample_treat_2$V6, probs = q), quantile(x = sample_treat_2$V6, probs = (1-q)),Inf))))
+          t6 <- t6 %>% filter(ID %in% t5$ID)
+          n1 <- trunc((nrow(t6)*q)*mi); n2 <- trunc((nrow(t6)*(1-(q*2)))*mc); n3 <- trunc((nrow(t6)*q)*ms)
+          borrar_1 <- if((nrow( t6 %>% filter(umbral == 1) )) > n1){true =  (t6 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t6 %>% filter(umbral == 2) )) > n2){true =  (t6 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t6 %>% filter(umbral == 3) )) > n3){true =  (t6 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_1$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_2$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_3$ID)
+          
+          t7 <- as.data.frame(cbind(ID = sample_treat_2$ID, t7 = sample_treat_2$V7, umbral = cut(x = sample_treat_2$V7, breaks = c(-Inf, quantile(x = sample_treat_2$V7, probs = q), quantile(x = sample_treat_2$V7, probs = (1-q)),Inf))))
+          t7 <- t7 %>% filter(ID %in% t6$ID)
+          n1 <- trunc((nrow(t7)*q)*mi); n2 <- trunc((nrow(t7)*(1-(q*2)))*mc); n3 <- trunc((nrow(t7)*q)*ms)
+          borrar_1 <- if((nrow( t7 %>% filter(umbral == 1) )) > n1){true =  (t7 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t7 %>% filter(umbral == 2) )) > n2){true =  (t7 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t7 %>% filter(umbral == 3) )) > n3){true =  (t7 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_1$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_2$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_3$ID)
+          
+          t8 <- as.data.frame(cbind(ID = sample_treat_2$ID, t8 = sample_treat_2$V8, umbral = cut(x = sample_treat_2$V8, breaks = c(-Inf, quantile(x = sample_treat_2$V8, probs = q), quantile(x = sample_treat_2$V8, probs = (1-q)),Inf))))
+          t8 <- t8 %>% filter(ID %in% t7$ID)
+          n1 <- trunc((nrow(t8)*q)*mi); n2 <- trunc((nrow(t8)*(1-(q*2)))*mc); n3 <- trunc((nrow(t8)*q)*ms)
+          borrar_1 <- if((nrow( t8 %>% filter(umbral == 1) )) > n1){true =  (t8 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t8 %>% filter(umbral == 2) )) > n2){true =  (t8 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t8 %>% filter(umbral == 3) )) > n3){true =  (t8 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_1$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_2$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_2_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t3, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t4, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t5, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t6, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t7, by = "ID")
+          sample_treat_2_perdidas <- full_join(x = sample_treat_2_perdidas, y = t8, by = "ID")
+          sample_treat_2_perdidas <- mutate(sample_treat_2_perdidas, treat = rep(2, nrow(sample_treat_2_perdidas)))
+          
+          # Eliminando las observaciones para el tratamiento 3
+          t1 <- as.data.frame(cbind(ID = sample_treat_3$ID, t1 = sample_treat_3$V1) )
+          
+          t2 <- as.data.frame(cbind(ID = sample_treat_3$ID, t2 = sample_treat_3$V2, umbral = cut(x = sample_treat_3$V2, breaks = c(-Inf, quantile(x = sample_treat_3$V2, probs = q), quantile(x = sample_treat_3$V2, probs = (1-q)),Inf))))
+          n1 <- trunc((nrow(t2)*q)*mi); n2 <- trunc((nrow(t2)*(1-(q*2)))*mc); n3 <- trunc((nrow(t2)*q)*ms)
+          borrar_1 <- if((nrow( t2 %>% filter(umbral == 1) )) > n1){true =  (t2 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t2 %>% filter(umbral == 2) )) > n2){true =  (t2 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t2 %>% filter(umbral == 3) )) > n3){true =  (t2 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_1$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_2$ID)
+          t2 <- t2 %>% select(ID, t2) %>% filter(!ID %in% borrar_3$ID)
+          
+          t3 <- as.data.frame(cbind(ID = sample_treat_3$ID, t3 = sample_treat_3$V3, umbral = cut(x = sample_treat_3$V3, breaks = c(-Inf, quantile(x = sample_treat_3$V3, probs = q), quantile(x = sample_treat_3$V3, probs = (1-q)),Inf))))
+          t3 <- t3 %>% filter(ID %in% t2$ID)
+          n1 <- trunc((nrow(t3)*q)*mi); n2 <- trunc((nrow(t3)*(1-(q*2)))*mc); n3 <- trunc((nrow(t3)*q)*ms)
+          borrar_1 <- if((nrow( t3 %>% filter(umbral == 1) )) > n1){true =  (t3 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t3 %>% filter(umbral == 2) )) > n2){true =  (t3 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t3 %>% filter(umbral == 3) )) > n3){true =  (t3 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_1$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_2$ID)
+          t3 <- t3 %>% select(ID, t3) %>% filter(!ID %in% borrar_3$ID)
+          
+          t4 <- as.data.frame(cbind(ID = sample_treat_3$ID, t4 = sample_treat_3$V4, umbral = cut(x = sample_treat_3$V4, breaks = c(-Inf, quantile(x = sample_treat_3$V4, probs = q), quantile(x = sample_treat_3$V4, probs = (1-q)),Inf))))
+          t4 <- t4 %>% filter(ID %in% t3$ID)
+          n1 <- trunc((nrow(t4)*q)*mi); n2 <- trunc((nrow(t4)*(1-(q*2)))*mc); n3 <- trunc((nrow(t4)*q)*ms)
+          borrar_1 <- if((nrow( t4 %>% filter(umbral == 1) )) > n1){true =  (t4 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t4 %>% filter(umbral == 2) )) > n2){true =  (t4 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t4 %>% filter(umbral == 3) )) > n3){true =  (t4 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_1$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_2$ID)
+          t4 <- t4 %>% select(ID, t4) %>% filter(!ID %in% borrar_3$ID)
+          
+          t5 <- as.data.frame(cbind(ID = sample_treat_3$ID, t5 = sample_treat_3$V5, umbral = cut(x = sample_treat_3$V5, breaks = c(-Inf, quantile(x = sample_treat_3$V5, probs = q), quantile(x = sample_treat_3$V5, probs = (1-q)),Inf))))
+          t5 <- t5 %>% filter(ID %in% t4$ID)
+          n1 <- trunc((nrow(t5)*q)*mi); n2 <- trunc((nrow(t5)*(1-(q*2)))*mc); n3 <- trunc((nrow(t5)*q)*ms)
+          borrar_1 <- if((nrow( t5 %>% filter(umbral == 1) )) > n1){true =  (t5 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t5 %>% filter(umbral == 2) )) > n2){true =  (t5 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t5 %>% filter(umbral == 3) )) > n3){true =  (t5 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_1$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_2$ID)
+          t5 <- t5 %>% select(ID, t5) %>% filter(!ID %in% borrar_3$ID)
+          
+          t6 <- as.data.frame(cbind(ID = sample_treat_3$ID, t6 = sample_treat_3$V6, umbral = cut(x = sample_treat_3$V6, breaks = c(-Inf, quantile(x = sample_treat_3$V6, probs = q), quantile(x = sample_treat_3$V6, probs = (1-q)),Inf))))
+          t6 <- t6 %>% filter(ID %in% t5$ID)
+          n1 <- trunc((nrow(t6)*q)*mi); n2 <- trunc((nrow(t6)*(1-(q*2)))*mc); n3 <- trunc((nrow(t6)*q)*ms)
+          borrar_1 <- if((nrow( t6 %>% filter(umbral == 1) )) > n1){true =  (t6 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t6 %>% filter(umbral == 2) )) > n2){true =  (t6 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t6 %>% filter(umbral == 3) )) > n3){true =  (t6 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_1$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_2$ID)
+          t6 <- t6 %>% select(ID, t6) %>% filter(!ID %in% borrar_3$ID)
+          
+          t7 <- as.data.frame(cbind(ID = sample_treat_3$ID, t7 = sample_treat_3$V7, umbral = cut(x = sample_treat_3$V7, breaks = c(-Inf, quantile(x = sample_treat_3$V7, probs = q), quantile(x = sample_treat_3$V7, probs = (1-q)),Inf))))
+          t7 <- t7 %>% filter(ID %in% t6$ID)
+          n1 <- trunc((nrow(t7)*q)*mi); n2 <- trunc((nrow(t7)*(1-(q*2)))*mc); n3 <- trunc((nrow(t7)*q)*ms)
+          borrar_1 <- if((nrow( t7 %>% filter(umbral == 1) )) > n1){true =  (t7 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t7 %>% filter(umbral == 2) )) > n2){true =  (t7 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t7 %>% filter(umbral == 3) )) > n3){true =  (t7 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_1$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_2$ID)
+          t7 <- t7 %>% select(ID, t7) %>% filter(!ID %in% borrar_3$ID)
+          
+          t8 <- as.data.frame(cbind(ID = sample_treat_3$ID, t8 = sample_treat_3$V8, umbral = cut(x = sample_treat_3$V8, breaks = c(-Inf, quantile(x = sample_treat_3$V8, probs = q), quantile(x = sample_treat_3$V8, probs = (1-q)),Inf))))
+          t8 <- t8 %>% filter(ID %in% t7$ID)
+          n1 <- trunc((nrow(t8)*q)*mi); n2 <- trunc((nrow(t8)*(1-(q*2)))*mc); n3 <- trunc((nrow(t8)*q)*ms)
+          borrar_1 <- if((nrow( t8 %>% filter(umbral == 1) )) > n1){true =  (t8 %>% filter(umbral == 1) %>% sample_n(size = n1, replace=FALSE))[1]}
+          borrar_2 <- if((nrow( t8 %>% filter(umbral == 2) )) > n2){true =  (t8 %>% filter(umbral == 2) %>% sample_n(size = n2, replace=FALSE))[1]}
+          borrar_3 <- if((nrow( t8 %>% filter(umbral == 3) )) > n3){true =  (t8 %>% filter(umbral == 3) %>% sample_n(size = n3, replace=FALSE))[1]}
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_1$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_2$ID)
+          t8 <- t8 %>% select(ID, t8) %>% filter(!ID %in% borrar_3$ID)
+          
+          sample_treat_3_perdidas <- full_join(x = t1,    y = t2, by = "ID")
+          sample_treat_3_perdidas <- full_join(x = sample_treat_3_perdidas, y = t3, by = "ID")
+          sample_treat_3_perdidas <- full_join(x = sample_treat_3_perdidas, y = t4, by = "ID")
+          sample_treat_3_perdidas <- full_join(x = sample_treat_3_perdidas, y = t5, by = "ID")
+          sample_treat_3_perdidas <- full_join(x = sample_treat_3_perdidas, y = t6, by = "ID")
+          sample_treat_3_perdidas <- full_join(x = sample_treat_3_perdidas, y = t7, by = "ID")
+          sample_treat_3_perdidas <- full_join(x = sample_treat_3_perdidas, y = t8, by = "ID")
+          sample_treat_3_perdidas <- mutate(sample_treat_3_perdidas, treat = rep(3, nrow(sample_treat_3)))
+          
+          # Muestra de ambos tratamiento con perdidas
+          sample <- bind_rows(sample_treat_1_perdidas,sample_treat_2_perdidas,sample_treat_3_perdidas)
+          
+          sample_long <- reshape(data = sample,varying = 2:(t+1), v.names = "yij", timevar= "tiempo", idvar = "ID", direction = "long")
+          sample_long <- arrange(sample_long,ID,tiempo)
+          sample_long$tiempo <- as.numeric(sample_long$tiempo)
+          sample_long$treat <- as.factor(sample_long$treat)
+          sample_long$tiempo <- (sample_long$tiempo-1)/(t-1)
+          
+          #Modelos
+          intercanbiable <- geeglm (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "exchangeable")
+          AR1            <- geeglm (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "ar1")        
+          unstructured   <- geeglm (formula = yij ~ treat + tiempo + treat * tiempo, id = ID,      data = sample_long, family = gaussian, corstr = "unstructured")
+          intercepto     <- lmer(formula = yij ~ treat + tiempo + treat * tiempo + (1     |ID), data = sample_long, REML = FALSE)
+          pen_intercepto <- lmer(formula = yij ~ treat + tiempo + treat * tiempo + (tiempo|ID), data = sample_long, REML = FALSE)
+          
+          #Completando las matrices con la decisión de la hipótesis
+          
+          gee_intercanbiable <- if((1-(pnorm( abs( coef(summary(intercanbiable)) [5,1]  /   coef(summary(intercanbiable))[5,2] ))))*2 < 0.05) 1 else 0
+          gee_AR1            <- if((1-(pnorm( abs( coef(summary(AR1))            [5,1]  /   coef(summary(AR1))           [5,2] ))))*2 < 0.05) 1 else 0
+          gee_unstructured   <- if((1-(pnorm( abs( coef(summary(unstructured))   [5,1]  /   coef(summary(unstructured))  [5,2] ))))*2 < 0.05) 1 else 0
+          mixto_intercepto   <- if(coef(summary(intercepto))    [5,5]                                                                 < 0.05) 1 else 0
+          mixto_pen_inter    <- if(coef(summary(pen_intercepto))[5,5]                                                                 < 0.05) 1 else 0
+          
+          gee_intercanbiable_3 <- if((1-(pnorm( abs( coef(summary(intercanbiable)) [6,1]  /   coef(summary(intercanbiable))[6,2] ))))*2 < 0.05) 1 else 0
+          gee_AR1_3            <- if((1-(pnorm( abs( coef(summary(AR1))            [6,1]  /   coef(summary(AR1))           [6,2] ))))*2 < 0.05) 1 else 0
+          gee_unstructured_3   <- if((1-(pnorm( abs( coef(summary(unstructured))   [6,1]  /   coef(summary(unstructured))  [6,2] ))))*2 < 0.05) 1 else 0
+          mixto_intercepto_3   <- if(coef(summary(intercepto))    [6,5]                                                                 < 0.05) 1 else 0
+          mixto_pen_inter_3    <- if(coef(summary(pen_intercepto))[6,5]                                                                 < 0.05) 1 else 0
+          
+          # print(c(n[[i]],j, round((sum(is.na(sample_long$yij))/nrow(sample_long))*100, 1) ))
+
+          r <- list(
+            j = j,
+            gee_intercanbiable = as.integer(gee_intercanbiable),
+            gee_AR1 = as.integer(gee_AR1),
+            gee_unstructured = as.integer(gee_unstructured),
+            mixto_intercepto = as.integer(mixto_intercepto),
+            mixto_pen_inter = as.integer(mixto_pen_inter),
+
+            gee_intercanbiable_3 = as.integer(gee_intercanbiable_3),
+            gee_AR1_3 = as.integer(gee_AR1_3),
+            gee_unstructured_3 = as.integer(gee_unstructured_3),
+            mixto_intercepto_3 = as.integer(mixto_intercepto_3),
+            mixto_pen_inter_3 = as.integer(mixto_pen_inter_3),
+          )
+          r
+        
+        }
+
+        #Completando las matrices con la decisión de la hipótesis 
+        for(r in i_result) {
+          j <- r$j
+          Gee_intercanbiable [i,j] <- r$gee_intercanbiable
+          Gee_AR1            [i,j] <- r$gee_AR1
+          Gee_unstructured   [i,j] <- r$gee_unstructured
+          Mixto_intercepto   [i,j] <- r$mixto_intercepto
+          Mixto_pen_inter    [i,j] <- r$mixto_pen_inter
+
+          Gee_intercanbiable_3 [i,j] <- r$gee_intercanbiable_3
+          Gee_AR1_3            [i,j] <- r$gee_AR1_3
+          Gee_unstructured_3   [i,j] <- r$gee_unstructured_3
+          Mixto_intercepto_3   [i,j] <- r$mixto_intercepto_3
+          Mixto_pen_inter_3    [i,j] <- r$mixto_pen_inter_3
+        }
+        print(n[[i]])
+      }
+    }
+    
+    #Completando las matrices con la decisión de la hipótesis para 2 y 3 brazos de tratamientos
+    if (treat == 2) {
+      #Base de datos para 2 tratamientos
+      Gee_inter  <- as.matrix(apply(X = Gee_intercanbiable, MARGIN = 1, FUN = mean))
+      Gee_AR     <- as.matrix(apply(X = Gee_AR1,            MARGIN = 1, FUN = mean))
+      Gee_unst   <- as.matrix(apply(X = Gee_unstructured,   MARGIN = 1, FUN = mean))
+      Mixto_inte <- as.matrix(apply(X = Mixto_intercepto,   MARGIN = 1, FUN = mean))
+      Mixto_pen_ <- as.matrix(apply(X = Mixto_pen_inter,    MARGIN = 1, FUN = mean))
+      
+      Base <- as.data.frame(cbind(n = n ))
+      Base <- mutate(Base,Gee_inter)
+      Base <- mutate(Base,Gee_AR)
+      Base <- mutate(Base,Gee_unst)
+      Base <- mutate(Base,Mixto_inte)
+      Base <- mutate(Base,Mixto_pen_)
+    }
+    if (treat == 3) {
+      #Base de datos para 3 tratamientos
+      Gee_inter     <- as.matrix(apply(X = Gee_intercanbiable,   MARGIN = 1, FUN = mean))
+      Gee_AR        <- as.matrix(apply(X = Gee_AR1,              MARGIN = 1, FUN = mean))
+      Gee_unst      <- as.matrix(apply(X = Gee_unstructured,     MARGIN = 1, FUN = mean))
+      Mixto_inte    <- as.matrix(apply(X = Mixto_intercepto,     MARGIN = 1, FUN = mean))
+      Mixto_pen_    <- as.matrix(apply(X = Mixto_pen_inter,      MARGIN = 1, FUN = mean))
+      
+      Gee_inter_3   <- as.matrix(apply(X = Gee_intercanbiable_3, MARGIN = 1, FUN = mean))
+      Gee_AR_3      <- as.matrix(apply(X = Gee_AR1_3,            MARGIN = 1, FUN = mean))
+      Gee_unst_3    <- as.matrix(apply(X = Gee_unstructured_3,   MARGIN = 1, FUN = mean))
+      Mixto_inte_3  <- as.matrix(apply(X = Mixto_intercepto_3,   MARGIN = 1, FUN = mean))
+      Mixto_pen_3   <- as.matrix(apply(X = Mixto_pen_inter_3,    MARGIN = 1, FUN = mean))
+      
+      Base <- as.data.frame(cbind(ID = n))
+      
+      Base <- mutate(Base,Gee_inter)
+      Base <- mutate(Base,Gee_AR)
+      Base <- mutate(Base,Gee_unst)
+      Base <- mutate(Base,Mixto_inte)
+      Base <- mutate(Base,Mixto_pen_)
+      
+      Base <- mutate(Base,Gee_inter_3)
+      Base <- mutate(Base,Gee_AR_3)
+      Base <- mutate(Base,Gee_unst_3)
+      Base <- mutate(Base,Mixto_inte_3)
+      Base <- mutate(Base,Mixto_pen_3)
+    }
+    
+    # Capturando la hora de término del la función
+    Fin <- DescTools::Now()
+    
+    # Calculando la duración
+    Duración <- Fin - Inicio; print(Duración)
+    
+    # Retornando los resultados
+    return(Base = Base)
+  } 
+    
+    
   Comp_modelos_missing <- function(base, treat, n, repeticiones, t, q, mi, mc, ms) {
     
     # Capturando la hora de inicio del la función
